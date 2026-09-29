@@ -24,7 +24,7 @@ Com a outbox definida ([ADR-001](./ADR-001-outbox-no-mysql.md)), falta decidir *
 - **Lógica de processamento:** dentro do módulo, em `src/modules/webhooks/webhook.processor.ts` (novo). Na reunião, as opções de nome foram `webhook.worker.ts` ou `webhook.processor.ts` (`[09:28] Bruno`). Adotamos `processor` para não confundir com o entry point.
 - **Conexão:** mesmo banco e mesma `DATABASE_URL`, mas um `PrismaClient` próprio do processo do worker, criado com o `createPrismaClient()` existente (`[09:11] Bruno`, `[09:11] Diego`, `[09:30] Bruno`).
 - **Ciclo:** a cada 2s, busca os eventos pendentes mais antigos em lote pequeno, processa e atualiza o status (`[09:08] Diego`, `[09:09] Diego`).
-- **Instância única:** roda **um único worker**, que processa em ordem de `created_at` da outbox. Com isso, o cliente recebe os eventos de um mesmo pedido na ordem em que aconteceram. Fica registrada como **limitação conhecida** a ausência de garantia de ordenação global: vale só por `order_id` e só enquanto houver um único worker (`[09:12] Diego`, `[09:13] Larissa`).
+- **Instância única:** roda **um único worker**, que processa em ordem de `created_at` da outbox. Com isso, no caminho feliz, o cliente recebe os eventos de um mesmo pedido na ordem em que aconteceram. Fica registrada como **limitação conhecida** a ausência de garantia de ordenação global: vale só por `order_id` e só enquanto houver um único worker (`[09:12] Diego`, `[09:13] Larissa`). Essa ordenação também não se sustenta quando um evento entra em retry (ver ADR-002-CONS-07).
 
 ## Alternativas Consideradas
 
@@ -41,14 +41,16 @@ Com a outbox definida ([ADR-001](./ADR-001-outbox-no-mysql.md)), falta decidir *
 ## Consequências
 
 ### Positivas
-- **ADR-002-CONS-01:** Atende o requisito de latência com folga. O intervalo de polling é de 2s contra a meta de 10s (`[09:09] Diego`), e a latência mínima de ~2s foi aceita explicitamente (`[09:10] Larissa`, `[09:10] Marcos`).
-- **ADR-002-CONS-02:** Isolamento de falhas. Restart ou deploy da API não interrompe entregas, e clientes lentos não consomem recursos da API (`[09:11] Diego`).
+- **ADR-002-CONS-01:** Atende o requisito de latência. A espera por polling é de até ~2s, contra a meta de 10s (`[09:09] Diego`). O "2 segundos no pior caso" foi aceito explicitamente (`[09:10] Larissa`, `[09:10] Marcos`). A meta só vale para entregas sem falha, porque o tempo de resposta do cliente se soma à espera (ver ADR-002-CONS-08).
+- **ADR-002-CONS-02:** Isolamento de falhas. Restart da API não interrompe entregas (`[09:11] Diego`).
 - **ADR-002-CONS-03:** Mesma stack e mesmo código de acesso a dados. Nenhuma tecnologia nova (`[09:11] Diego`).
 
 ### Negativas
 - **ADR-002-CONS-04:** Consultas periódicas ao banco mesmo sem eventos. O custo é mitigado pelos índices em status e `created_at` da outbox (`[09:08] Diego`).
 - **ADR-002-CONS-05:** Sem escala horizontal nesta fase. A vazão fica limitada a um worker, e a ordenação é garantida apenas por `order_id`, não globalmente (`[09:13] Larissa`). É aceitável porque os clientes nunca pediram ordenação global (`[09:14] Marcos`).
 - **ADR-002-CONS-06:** Mais um processo para implantar e monitorar, com o entry point `src/worker.ts` (novo) (`[09:11] Larissa`).
+- **ADR-002-CONS-07:** *(análise)* A ordem por pedido pode ser violada por retry. Se um evento de um pedido falha e entra no backoff de 1 minuto ([ADR-003](./ADR-003-retry-backoff-e-dlq.md), `[09:17] Diego`), o evento seguinte do mesmo pedido pode ser entregue antes dele. A garantia descrita em `[09:12] Diego` pressupõe que não haja falha. A reunião não decidiu se eventos posteriores do mesmo `order_id` devem esperar, e o ponto vai para as questões em aberto do [RFC](../RFC.md). Clientes que dependem da ordem podem usar `from_status`/`to_status` do payload para detectar a inversão.
+- **ADR-002-CONS-08:** *(análise)* Com um único worker e timeout de 10s por chamada (`[09:42] Diego`), um cliente lento pode atrasar as entregas de outros clientes do mesmo lote além da meta de 10s (`[09:02] Marcos`). O [FDD](../FDD.md) define a mitigação dentro do processo único.
 
 ### Trade-off
 Troca-se reatividade imediata e escala horizontal por **simplicidade operacional e ordenação por pedido**, dentro de uma latência que o produto já aceitou.

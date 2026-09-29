@@ -13,14 +13,14 @@ O OMS já tem convenções consolidadas, mapeadas diretamente no código:
 
 | Padrão | Onde está no código |
 | --- | --- |
-| Um módulo por domínio, com `controller`, `service`, `repository`, `routes` e `schemas` | `src/modules/orders/`, `src/modules/customers/`, `src/modules/products/`, `src/modules/users/`, `src/modules/auth/` |
+| Um módulo por domínio, com `controller`, `service`, `repository`, `routes` e `schemas` | `src/modules/orders/`, `src/modules/customers/`, `src/modules/products/`, `src/modules/users/` (`src/modules/auth/` não tem repository) |
 | Montagem dos routers por módulo | `src/routes/index.ts` (`buildApiRouter`) |
 | Erro base com `statusCode` e `errorCode`, e subclasses por status HTTP | `src/shared/errors/app-error.ts` (`AppError`), `src/shared/errors/http-errors.ts` (`NotFoundError`, `ConflictError`, `UnprocessableEntityError`, `InvalidStatusTransitionError`, `InsufficientStockError`…) |
 | Códigos de erro em `UPPER_SNAKE_CASE` | ex.: `INVALID_STATUS_TRANSITION`, `INSUFFICIENT_STOCK` em `src/shared/errors/http-errors.ts` |
 | Tratamento centralizado de `AppError`, `ZodError` e erros do Prisma | `src/middlewares/error.middleware.ts` |
 | Autenticação JWT e autorização por role | `src/middlewares/auth.middleware.ts` (`authenticate`, `requireRole`) |
 | Validação de entrada com Zod | `src/middlewares/validate.middleware.ts` + `*.schemas.ts` |
-| Logger estruturado Pino com `redact` de campos sensíveis | `src/shared/logger/index.ts` |
+| Logger estruturado Pino com `redact` de campos sensíveis (`req.headers.authorization`, `req.headers.cookie`, `*.password`, `*.passwordHash`, `*.token`, `*.accessToken`) | `src/shared/logger/index.ts` |
 | Transação de mudança de status | `src/modules/orders/order.service.ts` (`changeStatus`) |
 
 A feature precisa de endpoints REST, erros de domínio, validação, logs, autorização e um ponto de integração na transação de pedidos. Todos esses pontos já têm um padrão no projeto (`[09:27] Bruno`, `[09:29] Bruno`).
@@ -35,6 +35,7 @@ A feature precisa de endpoints REST, erros de domínio, validação, logs, autor
 4. **Autorização:**
    - O endpoint de replay da DLQ usa o `requireRole('ADMIN')` existente (`[09:36] Larissa`).
    - O CRUD de configuração exige apenas autenticação, por enquanto (`[09:37] Sofia`).
+   - O `customer_id` do webhook **não vem do JWT**: é informado pelo chamador no body ou no path (`[09:32] Larissa`). O JWT atual é do usuário operador, e não do cliente (`[09:32] Bruno`). A escolha entre body e path fica para o [FDD](../FDD.md).
 5. **Validação:** schemas Zod no padrão `*.schemas.ts`, incluindo a exigência de URL `https` (`[09:23] Sofia`).
 6. **Integração com pedidos:** `OrderService.changeStatus` chama uma **função pura** `publishWebhookEvent(tx, order, fromStatus, toStatus)` (novo), que recebe o client da transação corrente (`[09:41] Bruno`). Não se injeta um repository de webhooks inteiro no `OrderService` (`[09:41] Diego`).
 7. **Dados:** modelos Prisma novos seguem o padrão de ID `String @id @default(uuid()) @db.Char(36)` de `prisma/schema.prisma` (`[09:51] Larissa`). O worker usa o mesmo `createPrismaClient()` de `src/config/database.ts`, em instância própria (`[09:30] Bruno`).
@@ -55,8 +56,8 @@ A feature precisa de endpoints REST, erros de domínio, validação, logs, autor
 - **ADR-006-CONS-03:** Mudança mínima em código crítico. `changeStatus` ganha uma chamada dentro da transação, e não uma nova dependência injetada (`[09:41] Bruno`).
 
 ### Negativas
-- **ADR-006-CONS-04:** O `redact` atual do logger (`src/shared/logger/index.ts`) cobre `password`, `passwordHash` e `token`, mas **não** cobre a secret do webhook. O reuso do Pino exige estender essa lista para não vazar secrets ([ADR-004](./ADR-004-hmac-sha256-secret-por-endpoint.md)). É uma proposta de design derivada do padrão do código.
-- **ADR-006-CONS-05:** O `requireRole` só conhece as roles `ADMIN` e `OPERATOR` (`prisma/schema.prisma`, `UserRole`). Não existe um vínculo usuário–cliente que restrinja cada usuário aos webhooks do próprio customer. O endurecimento do CRUD ficou para depois (`[09:37] Sofia`).
+- **ADR-006-CONS-04:** Os `redactPaths` atuais do logger (`src/shared/logger/index.ts`) cobrem os headers `authorization` e `cookie` e as chaves `*.password`, `*.passwordHash`, `*.token` e `*.accessToken`, todas com um nível de profundidade. Nenhuma cobre a secret do webhook. O reuso do Pino exige acrescentar caminhos como `*.secret` e `*.previousSecret` para não vazar secrets ([ADR-004](./ADR-004-hmac-sha256-secret-por-endpoint.md)). É uma proposta de design derivada do padrão do código.
+- **ADR-006-CONS-05:** O `requireRole` só conhece as roles `ADMIN` e `OPERATOR` (`prisma/schema.prisma`, `UserRole`). Não existe um vínculo usuário–cliente, e o `customer_id` vem do chamador, não do JWT (`[09:32] Larissa`). Na prática, **qualquer usuário autenticado pode gerenciar os webhooks de qualquer customer**. O endurecimento do CRUD ficou para depois (`[09:37] Sofia`) e é registrado como risco aceito nesta fase.
 - **ADR-006-CONS-06:** `changeStatus` passa a depender de uma função do módulo de webhooks. Uma falha nela faz rollback da mudança de status, o que é intencional ([ADR-001](./ADR-001-outbox-no-mysql.md)).
 
 ### Trade-off

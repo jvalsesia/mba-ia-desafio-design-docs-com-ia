@@ -40,7 +40,7 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 - [x] T2: ADR-001 (outbox) e ADR-002 (worker em polling)
 - [x] T3: ADR-003 (retry/DLQ) e ADR-004 (HMAC)
 - [x] T4: ADR-005 (at-least-once), ADR-006 (reuso de padrões) e ADR-007 (snapshot)
-- [ ] **CP-A:** checkpoint dos ADRs
+- [x] **CP-A:** checkpoint dos ADRs
 
 ### Fase 3: Proposta
 - [ ] T5: RFC

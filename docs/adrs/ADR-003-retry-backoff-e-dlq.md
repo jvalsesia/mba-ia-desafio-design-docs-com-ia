@@ -2,7 +2,7 @@
 
 ## Status
 
-**Aceito.** "Decidido: 5 tentativas, backoff 1m/5m/30m/2h/12h" (`[09:17] Larissa`). DLQ em tabela separada com replay manual anotada em `[09:19] Larissa`. Role ADMIN no replay decidida em `[09:36] Larissa`.
+**Aceito.** "Decidido: 5 tentativas, backoff 1m/5m/30m/2h/12h" (`[09:17] Larissa`). DLQ em tabela separada proposta em `[09:18] Diego` e confirmada no resumo (`[09:48] Larissa`). Replay manual anotado em `[09:19] Larissa`. Role ADMIN no replay decidida em `[09:36] Larissa`.
 
 > **Ponto de atenção sobre a contagem de tentativas:** veja [Interpretação da contagem de tentativas](#interpretação-da-contagem-de-tentativas). O ponto está registrado como questão em aberto no [RFC](../RFC.md).
 

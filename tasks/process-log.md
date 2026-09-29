@@ -84,3 +84,38 @@ Regras:
 **Ajuste na verificação:** o script só conferia os timestamps do Tracker. Foi estendido para conferir também toda âncora `[hh:mm] Nome` citada no corpo dos documentos, porque uma âncora inventada no ADR passaria despercebida se o Tracker estivesse correto.
 
 **Resultado do verify:** 0 falhas. 58 linhas no Tracker, 91% TRANSCRICAO, 5 CODIGO, cobertura de 100%. As menções da seção 12 (Redis, arquivamento, multi-worker, e-mail, exactly-once) aparecem só como alternativa descartada, limitação ou fora de escopo.
+
+---
+
+## CP-A: Revisão adversarial dos ADRs
+
+**Prompt usado** (subagente `general-purpose` com contexto limpo, somente leitura):
+
+```text
+You are an adversarial reviewer. READ-ONLY. [...] The hard rule: every requirement, decision,
+constraint or number in the docs must be traceable to the transcript (the cited `[hh:mm] Nome`
+must actually say it) or to real code. [...]
+Hunt for, and report ONLY concrete, verified problems:
+(a) claims with no anchor [...]; (b) anchors where that speaker at that minute did NOT say what
+the ADR attributes to them [...]; (c) postponed/discarded items presented as decisions [...];
+(d) statements contradicting the code [...]; (e) decisions misrepresented, overstated or missing
+[...]; (f) sections, trade-off, and alternatives presented as "discussed" that were not.
+Output: numbered findings with file+line, severity, exact text, evidence, concrete fix.
+```
+
+**Resultado:** 11 achados, nenhum de alucinação grave. Nenhum falante estava errado nas falas citadas e nenhum item adiado foi promovido a decisão. Os problemas reais foram estes:
+
+| # | O que a IA tinha escrito | Correção aplicada |
+|---|---|---|
+| 1 | ADR-005-ALT-02, "at-most-once", apresentado como alternativa descartada na reunião, com a âncora `[09:16] Diego` | Ninguém propôs isso na reunião. **Alternativa removida** do ADR e do Tracker |
+| 2 | ADR-002 afirmava que o cliente recebe eventos do mesmo pedido em ordem | O retry com backoff de 1 min pode inverter a ordem. Novo **ADR-002-CONS-07** *(análise)*, que vira questão em aberto no RFC |
+| 3 | "Latência mínima de ~2s … com folga" | A fala é "2 segundos **no pior caso**" `[09:10] Larissa`. Texto corrigido e novo **ADR-002-CONS-08**: com worker único e timeout de 10s, um cliente lento atrasa os outros |
+| 4 | ADR-006 omitia a decisão "customer_id no body ou path, não do JWT" `[09:32] Larissa` | Decisão adicionada. A consequência "qualquer autenticado gerencia webhooks de qualquer customer" ficou explícita |
+| 5 | ADR-004 dizia "o formato exato do que é assinado fica no FDD", reabrindo algo já decidido | Corrigido para "HMAC só do corpo" `[09:22] Sofia`. Novo **ADR-004-CONS-06** *(análise)*: o `X-Timestamp` fica fora da assinatura |
+| 6 | Afirmações sem âncora ("clientes lentos não consomem recursos da API"; "sem outbox a fila perderia a atomicidade") | A primeira foi removida; a segunda foi marcada *(análise)*. Criado o marcador *(análise)* no `docs/adrs/README.md` |
+| 7 | ADR-006 dizia que `auth` tem repository e listava o `redact` incompleto | Corrigido a partir do código real (`redactPaths` completos) |
+| 8–11 | Âncoras do Tracker desalinhadas do texto (ADR-002-CONS-03, ADR-007-CONS-01/02, ADR-005-CONS-01); 64KB sem "erro caso ultrapasse"; ADR-004-ALT-02 apresentada como debatida | Âncoras realinhadas; "rejeitado com erro, sem truncar"; ALT-02 rotulada "alternativa implícita" |
+
+**Lição de processo:** a verificação automática confirmava que cada timestamp **existe**, mas não que a fala **diz** o que o documento atribui a ela. Três dos achados (at-most-once, ordenação, latência) eram exatamente isso. A revisão semântica continua obrigatória em todos os checkpoints.
+
+**Verify após as correções:** 0 falhas. 60 linhas no Tracker, 91% TRANSCRICAO, cobertura de 100%.

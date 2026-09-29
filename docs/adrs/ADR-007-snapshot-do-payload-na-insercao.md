@@ -31,8 +31,8 @@ O payload é enxuto: identificadores, `from_status`, `to_status`, `customer_id` 
 ## Consequências
 
 ### Positivas
-- **ADR-007-CONS-01:** Cada evento é um fato imutável: reflete o estado no instante da transição (`[09:52] Larissa`).
-- **ADR-007-CONS-02:** Corpo idêntico entre tentativas. A assinatura HMAC ([ADR-004](./ADR-004-hmac-sha256-secret-por-endpoint.md)) e a deduplicação por `X-Event-Id` ficam coerentes, e o worker não faz consultas extras ao pedido.
+- **ADR-007-CONS-01:** Cada evento é um fato imutável: reflete o estado no instante da transição, e não o estado do momento do envio (`[09:52] Larissa`, `[09:52] Diego`).
+- **ADR-007-CONS-02:** *(análise)* Corpo idêntico entre tentativas. A assinatura HMAC ([ADR-004](./ADR-004-hmac-sha256-secret-por-endpoint.md)) e a deduplicação por `X-Event-Id` (`[09:25] Diego`) ficam coerentes, e o worker não faz consultas extras ao pedido.
 
 ### Negativas
 - **ADR-007-CONS-03:** Mais dados por linha da outbox, o que aumenta o crescimento da tabela, cujo arquivamento está fora de escopo (`[09:08] Diego`). O efeito é limitado porque o payload é enxuto e não traz items (`[09:43] Diego`).

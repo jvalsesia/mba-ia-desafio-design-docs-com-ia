@@ -42,7 +42,7 @@ Dois problemas surgem se a notificação for feita no mesmo fluxo da mudança de
 **ADR-001-ALT-02: Fila externa, como Redis Streams "ou alguma coisa parecida".** Descartado.
 - Exigiria subir e operar infraestrutura nova (`[09:07] Larissa`).
 - Para um time pequeno, subir um Redis Cluster para esse caso é overengineering (`[09:07] Diego`).
-- Além disso, sem outbox, a publicação na fila ficaria fora da transação do MySQL e perderia a atomicidade.
+- *(análise)* Além disso, sem outbox, a publicação na fila ficaria fora da transação do MySQL e perderia a atomicidade descrita em `[09:06] Diego`.
 
 ## Consequências
 

@@ -26,13 +26,10 @@ Não há como a plataforma saber, sozinha, se o cliente já processou um evento.
 **ADR-005-ALT-01: Garantia exactly-once.** Descartado.
 - Exigiria coordenação dos dois lados e "fica muito mais complexo". At-least-once com `event_id` "resolve 99% dos casos" e é o padrão de mercado (Stripe, GitHub) (`[09:25] Diego`).
 
-**ADR-005-ALT-02: At-most-once (enviar uma vez, sem retentativa).** Descartado.
-- Incompatível com a política de retry decidida no [ADR-003](./ADR-003-retry-backoff-e-dlq.md). Clientes com indisponibilidade temporária perderiam eventos (`[09:16] Diego`).
-
 ## Consequências
 
 ### Positivas
-- **ADR-005-CONS-01:** Nenhum evento commitado se perde por falha transitória. Com o outbox, o evento sempre existe e é retentado (`[09:24] Diego`).
+- **ADR-005-CONS-01:** *(análise)* Combinada com a outbox (`[09:06] Diego`) e o retry ([ADR-003](./ADR-003-retry-backoff-e-dlq.md)), a garantia at-least-once (`[09:24] Diego`) faz com que nenhum evento commitado se perca por falha transitória dentro da janela de retentativas. Esgotada a janela, o evento fica preservado na DLQ.
 - **ADR-005-CONS-02:** Segue um padrão que clientes de integração já conhecem, e a deduplicação por ID único é simples de implementar (`[09:25] Diego`).
 
 ### Negativas
