@@ -106,7 +106,7 @@ Itens descartados ou adiados na reunião:
 
 | ID | Requisito | Origem |
 | --- | --- | --- |
-| **PRD-NFR-01** | **Latência:** notificação em menos de 10 segundos após a mudança de status, com espera máxima de ~2s até o envio | `[09:02] Marcos`, `[09:10] Larissa` |
+| **PRD-NFR-01** | **Latência:** notificação em menos de 10 segundos após a mudança de status, com espera de até ~2s até o envio em condições normais. Um cliente com endpoint lento não deve atrasar as notificações dos demais (PRD-RISK-06) | `[09:02] Marcos`, `[09:10] Larissa` |
 | **PRD-NFR-02** | **Autenticidade e integridade:** toda notificação é assinada (HMAC-SHA256) para o cliente verificar a origem e detectar adulteração | `[09:19] Sofia`, `[09:20] Sofia` |
 | **PRD-NFR-03** | **Isolamento de credenciais:** cada webhook tem sua própria secret; não existe secret global | `[09:21] Sofia` |
 | **PRD-NFR-04** | **Transporte seguro:** somente endereços `https` | `[09:23] Sofia` |
@@ -148,7 +148,8 @@ Itens descartados ou adiados na reunião:
 | **PRD-RISK-03** | Vazamento da secret de um cliente (já aconteceu antes, em log do cliente) | Média | Alto | Secret por webhook (vazamento isolado), rotação com 24h de convivência, revisão de segurança | `[09:22] Diego`, `[09:21] Sofia` |
 | **PRD-RISK-04** | Cliente com muitos pedidos mudando ao mesmo tempo recebe um volume alto de chamadas | Baixa | Médio | Monitorar o volume em produção e decidir sobre limite de taxa na próxima fase | `[09:38] Diego`, `[09:39] Larissa` |
 | **PRD-RISK-05** | Webhook do cliente falha por horas sem que o cliente perceba, já que não há aviso por e-mail nesta fase | Média | Médio | Histórico de entregas consultável pelo cliente, reenvio por ADMIN e medição para decidir o aviso na próxima fase | `[09:37] Larissa`, `[09:34] Marcos` |
-| **PRD-RISK-06** | Um cliente com endpoint lento atrasa as notificações de outros clientes | Média | Alto | Limite de 10s por chamada e monitoramento do tempo de entrega (ver [FDD](./FDD.md)) | `[09:42] Diego` |
+| **PRD-RISK-06** | Um cliente com endpoint lento atrasa as notificações de outros clientes | Média | Alto | Limite de 10s por chamada, envio de um cliente não bloqueia os demais e monitoramento do tempo de entrega (ver [FDD](./FDD.md)) | `[09:42] Diego` |
+| **PRD-RISK-07** | Sem restrição por perfil nesta fase, um usuário autenticado pode configurar webhooks de qualquer cliente | Média | Médio | Aceito nesta fase, com endurecimento previsto para depois; ações registradas com o usuário responsável | `[09:37] Sofia` |
 
 ## 11. Critérios de aceitação
 

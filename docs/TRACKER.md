@@ -8,9 +8,9 @@ Cada linha liga um item registrado nos documentos à sua origem. O ID é o mesmo
 - **"(análise)"** no Tipo marca uma consequência derivada logicamente das falas ou do código. A Localização aponta a fala ou o arquivo de que ela deriva.
 - **"Proposta de design"** marca uma escolha de implementação que a reunião não fechou, ancorada na decisão que a motivou.
 
-**Resumo:** 280 itens rastreados.
-- Por documento: PRD 84, RFC 22, ADRs 60, FDD 114.
-- Por fonte: TRANSCRICAO 246 (87%), CODIGO 34.
+**Resumo:** 281 itens rastreados.
+- Por documento: PRD 85, RFC 22, ADRs 60, FDD 114.
+- Por fonte: TRANSCRICAO 247 (87%), CODIGO 34.
 - Cobertura: 100% dos IDs dos documentos têm linha aqui, conferida por `bash tasks/verify-docs.sh`, que valida também cada `[hh:mm] Nome` contra a transcrição e cada caminho contra o repositório.
 
 A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
@@ -87,6 +87,7 @@ A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 | PRD-RISK-04 | `docs/PRD.md` | Risco | Volume alto de chamadas sem rate limit | TRANSCRICAO | [09:38] Diego |
 | PRD-RISK-05 | `docs/PRD.md` | Risco | Falha prolongada sem aviso por e-mail nesta fase | TRANSCRICAO | [09:37] Larissa |
 | PRD-RISK-06 | `docs/PRD.md` | Risco | Cliente lento atrasa outros | TRANSCRICAO | [09:42] Diego |
+| PRD-RISK-07 | `docs/PRD.md` | Risco | Usuário autenticado configura webhooks de qualquer cliente nesta fase | TRANSCRICAO | [09:37] Sofia |
 | PRD-AC-01 | `docs/PRD.md` | Critério de aceitação | Assinante de SHIPPED recebe notificação assinada em menos de 10s | TRANSCRICAO | [09:02] Marcos |
 | PRD-AC-02 | `docs/PRD.md` | Critério de aceitação | Status não assinado não gera notificação | TRANSCRICAO | [09:34] Bruno |
 | PRD-AC-03 | `docs/PRD.md` | Critério de aceitação | Entrega após indisponibilidade dentro da janela | TRANSCRICAO | [09:16] Diego |
@@ -199,7 +200,7 @@ A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 | FDD-DADOS-04 | `docs/FDD.md` | Proposta de design | Uma linha de outbox por webhook assinante; id da linha é o event_id | TRANSCRICAO | [09:25] Diego |
 | FDD-DADOS-05 | `docs/FDD.md` | Proposta de design | Payload em MEDIUMTEXT com os bytes exatos do snapshot (evita rollback acima de 64KB) | TRANSCRICAO | [09:52] Larissa |
 | FDD-DADOS-06 | `docs/FDD.md` | Modelo de dados | DLQ em tabela própria com payload, motivo e timestamp | TRANSCRICAO | [09:18] Diego |
-| FDD-DADOS-07 | `docs/FDD.md` | Proposta de design | Cascade Webhook→Customer para não alterar DELETE /customers/:id | CODIGO | prisma/schema.prisma |
+| FDD-DADOS-07 | `docs/FDD.md` | Proposta de design | Cascade Webhook→Customer; DLQ sem FK preservada como evidência | CODIGO | prisma/schema.prisma |
 | FDD-DADOS-08 | `docs/FDD.md` | Proposta de design | Tamanhos de coluna e truncamento de requestId, lastError e responseBody para evitar P2000 | CODIGO | src/middlewares/request-logger.middleware.ts |
 | FDD-FLUXO-01 | `docs/FDD.md` | Fluxo | publishWebhookEvent(tx) após history; filtro na inserção; snapshot; rollback em falha; filtro em [09:34] Bruno | TRANSCRICAO | [09:41] Bruno |
 | FDD-FLUXO-02 | `docs/FDD.md` | Fluxo | Worker: claim de lote pendente, envio, registro de entrega, sucesso ou falha | TRANSCRICAO | [09:09] Diego |
@@ -209,14 +210,14 @@ A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 | FDD-WORKER-01 | `docs/FDD.md` | Restrição | Processo separado e mesmo banco; worker importa o singleton prisma de database.ts, instância própria por processo | TRANSCRICAO | [09:30] Bruno |
 | FDD-WORKER-02 | `docs/FDD.md` | Regra | Polling de 2s, mais antigos primeiro, lote pequeno (10 proposto); lote em [09:08] Diego | TRANSCRICAO | [09:09] Diego |
 | FDD-WORKER-03 | `docs/FDD.md` | Limitação | Instância única; ordem por order_id no caminho sem falhas | TRANSCRICAO | [09:12] Diego |
-| FDD-WORKER-04 | `docs/FDD.md` | Proposta de design | Paralelismo entre pedidos distintos, sequencial dentro do pedido | TRANSCRICAO | [09:42] Diego |
+| FDD-WORKER-04 | `docs/FDD.md` | Proposta de design | Envios em voo com trava por pedido; tick não espera cliente lento | TRANSCRICAO | [09:42] Diego |
 | FDD-WORKER-05 | `docs/FDD.md` | Proposta de design | Lease de 60s em todo tick e try/catch por evento: nenhuma linha presa em PROCESSING (proposta) | TRANSCRICAO | [09:24] Diego |
 | FDD-WORKER-06 | `docs/FDD.md` | Proposta de design | Timeout de 10s; só 2xx como sucesso e redirects não seguidos são proposta | TRANSCRICAO | [09:42] Diego |
 | FDD-WORKER-07 | `docs/FDD.md` | Proposta de design | Shutdown gracioso no molde de server.ts | CODIGO | src/server.ts |
 | FDD-CONTRATO-01 | `docs/FDD.md` | Contrato | POST /customers/:customerId/webhooks com url e events; secret devolvida na criação | TRANSCRICAO | [09:31] Marcos |
 | FDD-CONTRATO-02 | `docs/FDD.md` | Contrato | GET /customers/:customerId/webhooks sem secret | TRANSCRICAO | [09:33] Bruno |
 | FDD-CONTRATO-03 | `docs/FDD.md` | Contrato | PATCH /webhooks/:id para url, events e active | TRANSCRICAO | [09:33] Bruno |
-| FDD-CONTRATO-04 | `docs/FDD.md` | Contrato | DELETE /webhooks/:id com cascata (proposta) | TRANSCRICAO | [09:33] Bruno |
+| FDD-CONTRATO-04 | `docs/FDD.md` | Contrato | DELETE /webhooks/:id: cascata em pendentes e entregas; DLQ preservada (proposta) | TRANSCRICAO | [09:33] Bruno |
 | FDD-CONTRATO-05 | `docs/FDD.md` | Contrato | POST /webhooks/:id/rotate-secret; anterior válida por 24h | TRANSCRICAO | [09:21] Sofia |
 | FDD-CONTRATO-06 | `docs/FDD.md` | Contrato | GET /webhooks/:id/deliveries, últimas 100, sucesso/falha, payload, resposta e tempo | TRANSCRICAO | [09:34] Marcos |
 | FDD-CONTRATO-07 | `docs/FDD.md` | Contrato | POST /admin/webhooks/dead-letter/:id/replay exige ADMIN; endpoint em [09:18] Diego | TRANSCRICAO | [09:36] Sofia |
@@ -240,7 +241,7 @@ A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 | FDD-RES-03 | `docs/FDD.md` | Resiliência | Fallback para DLQ com replay manual | TRANSCRICAO | [09:18] Diego |
 | FDD-RES-04 | `docs/FDD.md` | Resiliência | Limite de 64KB verificado no worker, não na transação | TRANSCRICAO | [09:24] Larissa |
 | FDD-RES-05 | `docs/FDD.md` | Resiliência | Recuperação de crash por lease de 60s coberta por at-least-once | TRANSCRICAO | [09:24] Diego |
-| FDD-RES-06 | `docs/FDD.md` | Resiliência | Isolamento entre clientes por paralelismo entre pedidos | TRANSCRICAO | [09:42] Diego |
+| FDD-RES-06 | `docs/FDD.md` | Resiliência | Isolamento: tick não bloqueia em cliente lento | TRANSCRICAO | [09:42] Diego |
 | FDD-RES-07 | `docs/FDD.md` | Resiliência | Falha de banco no tick: loga e segue; estado na outbox | TRANSCRICAO | [09:06] Diego |
 | FDD-RES-08 | `docs/FDD.md` | Resiliência | Worker parado acumula PENDING sem perda | TRANSCRICAO | [09:11] Diego |
 | FDD-OBS-01 | `docs/FDD.md` | Métrica | Latência commit→entrega com SLO p95 abaixo de 10s | TRANSCRICAO | [09:02] Marcos |
@@ -273,7 +274,7 @@ A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 | FDD-INT-14 | `docs/FDD.md` | Integração | Limpeza das tabelas novas no beforeEach; tests/webhooks.test.ts novo | CODIGO | tests/setup.ts |
 | FDD-DEP-01 | `docs/FDD.md` | Dependência | Node 20 nativo (fetch, AbortSignal.timeout, crypto); nenhum pacote novo | CODIGO | package.json |
 | FDD-DEP-02 | `docs/FDD.md` | Dependência | Mesmo MySQL e DATABASE_URL; migration aditiva | CODIGO | src/config/env.ts |
-| FDD-DEP-03 | `docs/FDD.md` | Compatibilidade | Contratos existentes inalterados; DELETE customer remove webhooks em cascata | CODIGO | src/modules/orders/order.routes.ts |
+| FDD-DEP-03 | `docs/FDD.md` | Compatibilidade | Contratos existentes inalterados; DELETE customer remove webhooks em cascata | CODIGO | prisma/schema.prisma |
 | FDD-DEP-04 | `docs/FDD.md` | Compatibilidade | Ordem de deploy migration→API→worker (proposta); eventos acumulam sem perda na outbox | TRANSCRICAO | [09:06] Diego |
 | FDD-DEP-05 | `docs/FDD.md` | Dependência | Cliente: https, 2xx em 10s, HMAC e dedup documentados no portal | TRANSCRICAO | [09:26] Marcos |
 | FDD-DEP-06 | `docs/FDD.md` | Restrição | Revisão de segurança de 2 dias úteis antes do deploy | TRANSCRICAO | [09:46] Sofia |

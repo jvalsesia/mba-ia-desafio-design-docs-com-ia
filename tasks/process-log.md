@@ -236,3 +236,30 @@ mitigação; decisões como trade-offs vistos pelo cliente, linkando os ADRs.
 **Lição de processo:** até aqui, a IA revisava contra a transcrição. Pedir explicitamente uma revisão "isso funcionaria contra o código real?" trouxe à tona bugs de desenho (1, 2, 5, 6) que nenhuma checagem de rastreabilidade pegaria.
 
 **Verify:** 0 falhas. 280 linhas no Tracker, 87% TRANSCRICAO, 34 CODIGO.
+
+---
+
+## T10 + CP-D: Consolidação do Tracker e revisão cruzada do pacote
+
+**T10:** o Tracker foi reordenado na ordem de leitura (PRD → RFC → ADRs → FDD) e ganhou um resumo com contagens e legenda dos marcadores *(análise)* e *Proposta de design*.
+
+**CP-D, prompt usado:** subagente com contexto limpo, focado no que as revisões por documento não enxergam:
+- contradições **entre** documentos (números, rotas, roles, escopo, semântica de replay, IDs RFC-OPEN/CONF citados após renumeração);
+- violações de altitude;
+- referências internas quebradas;
+- o checklist de aceite do enunciado item por item.
+
+**Resultado:** 8 achados (3 médios). Números, rotas, links relativos e IDs estavam consistentes entre todos os documentos. Os problemas encontrados:
+
+| # | Problema | Correção |
+|---|---|---|
+| 1 | O FDD citava "§8.1/8.2/8.3" (seções de observabilidade que são a §9) e "6.1…6.8" sem headings numerados | Referências corrigidas e endpoints numerados. O regex do verify foi ajustado para os headings numerados |
+| 2 | **O PRD prometia uma espera máxima de ~2s, mas o desenho do worker não cumpria:** o tick "sem sobreposição" esperava o grupo mais lento, então um cliente com timeout de 10s atrasava todos acima da meta | Worker redesenhado com **envios em voo e trava por pedido**: o tick não espera os envios em andamento. PRD, RFC e ADR-002 alinhados |
+| 3 | **DELETE do webhook apagava a DLQ em cascata**, o que contradizia o ADR-003 ("toda falha permanente fica persistida") | `webhook_dead_letter` sem FK, preservada como evidência; replay de evento de webhook removido retorna 404 |
+| 4 | O FDD manda falhas não retentáveis direto para a DLQ, mas RFC e ADR-003 diziam "só após esgotar as tentativas" | Uma linha em RFC-PROP-03 e no ADR-003, como proposta de design |
+| 5 | O ADR-006 tratava `WEBHOOK_INVALID_URL` e `WEBHOOK_SECRET_REQUIRED` como códigos de resposta da API | Esclarecido: o primeiro é detalhe de `VALIDATION_ERROR` e o segundo é motivo interno do worker |
+| 6–8 | ADRs citando "questões em aberto do RFC" sem o ID (e em outra subseção); lista de impacto do RFC incompleta; formato de header no ADR-004 (altitude de FDD); risco de acesso entre clientes ausente no PRD; âncora CODIGO errada em FDD-DEP-03 | IDs RFC-CONF-01/02 e RFC-OPEN-02 citados; lista completada; formato movido para o FDD; PRD-RISK-07 criado; âncora corrigida |
+
+**Lição de processo:** revisar cada documento isoladamente não bastou. O achado 2 só aparece quando se lê a promessa do PRD ao lado do pseudocódigo do FDD.
+
+**Verify:** 0 falhas. 281 linhas no Tracker, 87% TRANSCRICAO, 34 CODIGO, cobertura de 100%.

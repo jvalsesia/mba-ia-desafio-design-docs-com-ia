@@ -44,6 +44,7 @@ O OMS não tem hoje nenhum mecanismo de eventos, filas ou notificação externa.
 - Falta de resposta em 10s conta como falha (`[09:42] Diego`). *Proposta de design:* resposta fora da faixa 2xx também conta como falha.
 - O evento é retentado em 1m, 5m, 30m, 2h e 12h (`[09:17] Larissa`).
 - Esgotadas as retentativas, vai para uma DLQ em tabela própria. Um ADMIN pode recolocá-lo na fila, com auditoria em log (`[09:18] Diego`, `[09:36] Sofia`).
+- *Proposta de design:* falhas que não se resolvem com o tempo vão direto para a DLQ, sem retentativa: payload acima de 64KB, webhook desativado e webhook sem secret.
 - Decisão: [ADR-003](./adrs/ADR-003-retry-backoff-e-dlq.md).
 
 **RFC-PROP-04: Confiança na entrega.** Cada entrega é assinada e identificada:
@@ -107,13 +108,14 @@ Pontos levantados na reunião e deixados sem decisão ou adiados:
 
 ## Impacto e riscos
 
-**Impacto no código:** a mudança em código existente se concentra em seis pontos:
-- a transação de `changeStatus`, que ganha uma chamada;
+**Impacto no código:** a mudança em código existente se concentra em:
+- a transação de `changeStatus`, que ganha uma chamada e um parâmetro opcional de correlação, repassado por `src/modules/orders/order.controller.ts`;
 - o registro de rotas em `src/routes/index.ts`;
 - a montagem do controller em `src/app.ts`;
 - novos modelos em `prisma/schema.prisma`;
 - um script novo em `package.json`;
-- *(proposta de design)* os `redactPaths` de `src/shared/logger/index.ts`, que passam a cobrir a secret.
+- *(proposta de design)* os `redactPaths` de `src/shared/logger/index.ts`, que passam a cobrir a secret;
+- a limpeza das tabelas novas em `tests/setup.ts`.
 
 O restante é módulo novo. O `error.middleware.ts` não muda ([ADR-006](./adrs/ADR-006-reuso-dos-padroes-do-projeto.md)).
 
@@ -125,7 +127,7 @@ O restante é módulo novo. O `error.middleware.ts` não muda ([ADR-006](./adrs/
 
 | ID | Risco | Mitigação |
 | --- | --- | --- |
-| **RFC-RISK-01** | *(análise)* Com worker único, um cliente lento, com até 10s por chamada (`[09:42] Diego`), atrasa as entregas dos demais além da meta de 10s (`[09:02] Marcos`) | *Proposta de design:* envio concorrente entre pedidos distintos dentro do lote, preservando a ordem por pedido. Métricas de latência e de fila e revisão de escala (RFC-OPEN-03) |
+| **RFC-RISK-01** | *(análise)* Com worker único, um cliente lento, com até 10s por chamada (`[09:42] Diego`), atrasa as entregas dos demais além da meta de 10s (`[09:02] Marcos`) | *Proposta de design:* envios em voo com trava por pedido. O ciclo de leitura não espera um cliente lento, e a ordem por pedido é preservada. Métricas de latência e de fila e revisão de escala (RFC-OPEN-03) |
 | **RFC-RISK-02** | Crescimento contínuo da outbox, já que o arquivamento está fora do escopo | Índices em status e `created_at` e leitura em lote pequeno. Arquivamento posterior (`[09:08] Diego`) |
 | **RFC-RISK-03** | Vazamento de secret, que já aconteceu com um cliente | Secret por endpoint, rotação com grace de 24h, `redact` no logger e revisão da Sofia (`[09:22] Diego`) |
 | **RFC-RISK-04** | *(análise)* Configuração de webhook de outro customer por um usuário autenticado | Aceito nesta fase, com endurecimento posterior (RFC-OPEN-04, `[09:37] Sofia`) |

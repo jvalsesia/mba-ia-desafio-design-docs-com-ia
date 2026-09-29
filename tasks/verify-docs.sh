@@ -158,7 +158,7 @@ fi
 # ---------------------------------------------------------------------------
 section "11. FDD: endpoints e códigos WEBHOOK_*"
 if [ -f docs/FDD.md ] && [ "$(wc -w < docs/FDD.md)" -gt 20 ]; then
-  n_ep=$(grep -cE '^#### (GET|POST|PATCH|PUT|DELETE) /' docs/FDD.md || true)
+  n_ep=$(grep -cE '^#### ([0-9.]+ )?(GET|POST|PATCH|PUT|DELETE) /' docs/FDD.md || true)
   echo "  endpoints=$n_ep"
   [ "$n_ep" -ge 4 ] || warn "FDD com $n_ep endpoints (a entrega final exige >= 4)"
   codes="$(grep -oE '\bWEBHOOK_[A-Z_]+\b' docs/FDD.md | sort -u | tr '\n' ' ')"

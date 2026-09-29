@@ -23,7 +23,7 @@ Já houve cliente que vazou secret no log da própria aplicação (`[09:22] Dieg
 3. **Geração pela plataforma:** a secret é gerada pela plataforma e devolvida ao cliente na criação do webhook (`[09:31] Marcos`).
 4. **Rotação pela API:** o cliente pede uma nova secret por um endpoint. A antiga continua válida **por 24 horas em paralelo** e depois é descartada (`[09:21] Sofia`).
 5. **Assinatura durante o grace period.** A reunião não detalhou este ponto, então o que segue é uma proposta de design derivada de `[09:21] Sofia`:
-   - Nas 24h, `X-Signature` carrega **duas assinaturas**, uma com cada secret (ex.: `v1=<hmac_nova>,v1=<hmac_antiga>`), e o cliente aceita a entrega se qualquer uma delas bater.
+   - Nas 24h, `X-Signature` carrega **duas assinaturas**, uma com cada secret, e o cliente aceita a entrega se qualquer uma delas bater. O formato do header está no [FDD](../FDD.md).
    - Assinar só com a nova tornaria o grace period inútil para quem ainda verifica com a antiga.
 6. **Escopo da assinatura:** o HMAC cobre **somente o corpo** do request, como decidido (`[09:22] Sofia`). O header `X-Timestamp` com o momento do envio vai à parte, para que o cliente possa detectar ataques de replay se quiser (`[09:44] Diego`). O [FDD](../FDD.md) detalha a codificação dos headers.
 

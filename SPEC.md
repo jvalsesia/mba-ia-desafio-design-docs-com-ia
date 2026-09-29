@@ -92,7 +92,7 @@ grep -oE '\(\./adrs/ADR-[0-9]{3}-[a-z0-9-]+\.md\)' docs/RFC.md | tr -d '()' | so
 wc -w docs/RFC.md
 
 # 11. FDD: >= 4 endpoints e códigos WEBHOOK_*
-grep -cE '^#### (GET|POST|PATCH|PUT|DELETE) /' docs/FDD.md
+grep -cE '^#### ([0-9.]+ )?(GET|POST|PATCH|PUT|DELETE) /' docs/FDD.md
 grep -oE '\bWEBHOOK_[A-Z_]+\b' docs/FDD.md | sort -u
 
 # 12. Varredura de itens fora de escopo (revisão manual: só podem aparecer em Fora de escopo / Alternativas / Questões em aberto)
