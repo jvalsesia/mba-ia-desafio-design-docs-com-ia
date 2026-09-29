@@ -1,6 +1,6 @@
 # Da Reunião ao Documento: Design Docs Gerados por IA
 
-> Entrega do desafio de design docs do MBA. O enunciado original está no [repositório base](https://github.com/devfullcycle/mba-ia-desafio-design-docs-com-ia). Este README documenta **como** o pacote foi produzido.
+> Entrega do desafio de design docs do MBA. O enunciado original está no [repositório base](https://github.com/devfullcycle/mba-ia-desafio-design-docs-com-ia). Este README documenta **como** o pacote foi produzido. Os artefatos de bastidores (`SPEC.md` e a pasta `tasks/`, com plano, diário do processo e script de verificação) ficam no [branch de trabalho](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/tree/jvalsesia/mba-ia-desafio-design-docs-com-ia), para manter o `main` só com a entrega.
 
 ## Sobre o desafio
 
@@ -16,7 +16,7 @@ A regra que guiou todo o trabalho foi a **rastreabilidade**. Cada requisito, dec
 | **Plugin [`agent-skills`](https://github.com/addyosmani/agent-skills)** (addyosmani), skills `spec-driven-development` (comando `/agent-skills:spec`) e `planning-and-task-breakdown` | Deu a estrutura do processo: spec com premissas explícitas e aprovação antes de produzir, depois o plano quebrado em tarefas com critério de aceite e checkpoints |
 | **Plan mode do Claude Code** | Aprovação formal do plano antes da execução |
 | **Subagentes do Claude Code** (tipo `general-purpose`, somente leitura) | **Revisores adversariais com contexto limpo** em cada checkpoint. Receberam só os arquivos e a missão de achar âncoras que não sustentam a afirmação, invenções, contradições com o código e itens descartados promovidos a requisito |
-| `tasks/verify-docs.sh` (script gerado pela IA) | Não é IA, mas foi a rede de segurança contra alucinação. Confere se todo `[hh:mm] Nome` citado existe na transcrição **com aquele falante**, se todo caminho citado existe, a cobertura do Tracker, a proporção de fontes, os links do RFC, os endpoints e códigos `WEBHOOK_*` do FDD e se `src/`, `prisma/` e `tests/` ficaram intocados |
+| [`tasks/verify-docs.sh`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/verify-docs.sh) (script gerado pela IA, no branch de trabalho) | Não é IA, mas foi a rede de segurança contra alucinação. Confere se todo `[hh:mm] Nome` citado existe na transcrição **com aquele falante**, se todo caminho citado existe, a cobertura do Tracker, a proporção de fontes, os links do RFC, os endpoints e códigos `WEBHOOK_*` do FDD e se `src/`, `prisma/` e `tests/` ficaram intocados |
 
 ## Workflow adotado
 
@@ -32,7 +32,7 @@ T1 verify-docs.sh ─▶ ADRs ─▶ CP-A ─▶ RFC ─▶ CP-B ─▶ FDD ─�
                       └── cada documento nasce com suas linhas no Tracker e passa no verify antes do commit
 ```
 
-1. **Spec antes de qualquer documento.** Em vez de pedir "gere um PRD", o primeiro passo foi o [`SPEC.md`](./SPEC.md). A IA leu a transcrição inteira e os pontos do código, listou premissas e fez 3 perguntas de escopo (spec único ou por documento? como registrar o processo sem fabricar? quantos ADRs?). Depois montou uma **base de fatos** (§8 do SPEC) com:
+1. **Spec antes de qualquer documento.** Em vez de pedir "gere um PRD", o primeiro passo foi o [`SPEC.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/SPEC.md). A IA leu a transcrição inteira e os pontos do código, listou premissas e fez 3 perguntas de escopo (spec único ou por documento? como registrar o processo sem fabricar? quantos ADRs?). Depois montou uma **base de fatos** (§8 do SPEC) com:
    - requisitos funcionais e não funcionais com timestamp;
    - uma tabela explícita do que foi descartado ou adiado;
    - 13 pontos de integração no código (16 arquivos reais) e como cada um se liga à feature;
@@ -42,7 +42,7 @@ T1 verify-docs.sh ─▶ ADRs ─▶ CP-A ─▶ RFC ─▶ CP-B ─▶ FDD ─�
 2. **Ordem de produção** conforme o enunciado: ADRs → RFC → FDD → PRD → Tracker → README. As decisões formam o esqueleto, e o PRD, por ser o mais alto nível, virou consolidação.
 3. **Tracker incremental.** Cada documento nasceu com IDs em negrito (`PRD-FR-01`, `RFC-ALT-02`, `FDD-INT-05`, `ADR-003-CONS-04`…) e com as linhas correspondentes no Tracker. A origem foi registrada no momento em que cada item foi escrito.
 4. **Checkpoint adversarial após cada documento** (CP-A a CP-D). Um subagente sem o histórico da conversa recebia os arquivos e uma lista de verificação específica daquele documento. Os achados eram corrigidos e registrados.
-5. **Diário do processo.** Tudo o que está nas seções abaixo vem de [`tasks/process-log.md`](./tasks/process-log.md), escrito durante o trabalho, e não reconstruído no fim.
+5. **Diário do processo.** Tudo o que está nas seções abaixo vem de [`tasks/process-log.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/process-log.md) (no branch de trabalho), escrito durante o trabalho, e não reconstruído no fim.
 
 **Divisão de papéis.** A IA produziu e revisou. As decisões ficaram comigo:
 - as três escolhas de escopo do spec (spec único, diário do processo versionado, 6 ADRs principais + 1);
@@ -139,6 +139,6 @@ Houve **5 ciclos principais** de geração → revisão → correção (spec, AD
 | 3 | [`docs/adrs/`](./docs/adrs/README.md) | ADR-001 a ADR-007: uma decisão por arquivo (outbox, worker, retry/DLQ, HMAC, at-least-once, reuso de padrões, snapshot do payload) |
 | 4 | [`docs/FDD.md`](./docs/FDD.md) | Como construir: modelo de dados, fluxos, 7 endpoints com exemplos, matriz `WEBHOOK_*`, resiliência, observabilidade e **integração com o sistema existente** |
 | 5 | [`docs/TRACKER.md`](./docs/TRACKER.md) | A origem de cada item (transcrição ou código) |
-| Bastidores | [`SPEC.md`](./SPEC.md), [`tasks/plan.md`](./tasks/plan.md), [`tasks/todo.md`](./tasks/todo.md), [`tasks/process-log.md`](./tasks/process-log.md), [`tasks/verify-docs.sh`](./tasks/verify-docs.sh) | Spec aprovado, plano, diário de cada ciclo e o script de verificação (`bash tasks/verify-docs.sh`) |
+| Bastidores ([branch de trabalho](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/tree/jvalsesia/mba-ia-desafio-design-docs-com-ia)) | [`SPEC.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/SPEC.md), [`tasks/plan.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/plan.md), [`tasks/todo.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/todo.md), [`tasks/process-log.md`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/process-log.md), [`tasks/verify-docs.sh`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/verify-docs.sh) | Spec aprovado, plano, diário de cada ciclo e o script de verificação. Para rodar o script: faça checkout do branch de trabalho e execute `bash tasks/verify-docs.sh` |
 
-O código da aplicação (`src/`, `prisma/`, `tests/` e configurações) e a transcrição não foram alterados. O script de verificação confere isso contra o último commit do repositório base (`e7f6311`).
+O código da aplicação (`src/`, `prisma/`, `tests/` e configurações) e a transcrição não foram alterados. O script de verificação, no branch de trabalho, confere isso contra o último commit do repositório base (`e7f6311`).
