@@ -290,6 +290,6 @@ A entrega está pronta quando **todos** os critérios de aceite do enunciado ori
 2. **Onde vai o `customer_id` (body ou path).** Ficou indefinido em `[09:32] Larissa`.
    → *Default:* rotas aninhadas `/customers/:customerId/webhooks` para criar e listar, seguindo o padrão de recurso do projeto, e `/webhooks/:id` para PATCH/DELETE/deliveries/rotação. Fica marcado como proposta e aparece como questão em aberto no RFC.
 3. **Assinatura durante o grace period da rotação.** A reunião não definiu se, nas 24h, o envio leva uma ou duas assinaturas.
-   → *Default:* o FDD propõe assinar com a secret nova e trata a antiga como válida do lado do cliente. Fica marcado como proposta e aparece nos riscos.
+   → *Decisão (revista em 2026-09-29):* nas 24h, `X-Signature` leva **duas assinaturas**, uma com a secret nova e outra com a antiga (ex.: `v1=<hmac_nova>,v1=<hmac_antiga>`), e o cliente aceita se qualquer uma bater. O default original (só a nova) anulava o grace period, porque quem ainda usa a secret antiga falharia na verificação. Fica marcado como proposta ancorada em `[09:21] Sofia`.
 4. **Tracing.** Não há tracing distribuído no projeto, e a reunião não tratou do tema.
    → *Default:* o FDD define tracing por correlação de IDs (`X-Request-Id` da requisição de mudança de status → `event_id` → `webhook_id` → tentativa), sem adicionar dependência nova. Fica marcado como proposta ancorada em `src/middlewares/request-logger.middleware.ts`.

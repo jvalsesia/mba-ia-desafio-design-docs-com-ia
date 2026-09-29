@@ -88,6 +88,14 @@ else
   done < <(grep -oE '\[[0-9]{2}:[0-9]{2}\] [A-Z][a-z]+' docs/TRACKER.md | sort -u)
   [ "$invalid" -eq 0 ] && ok "todos os timestamps conferem"
 
+  # Mesma checagem para as âncoras citadas no corpo dos documentos
+  invalid=0
+  while read -r t; do
+    [ -z "$t" ] && continue
+    grep -qF "$t:" TRANSCRICAO.md || { fail "âncora inexistente no corpo dos documentos: $t"; invalid=1; }
+  done < <(grep -ohE '\[[0-9]{2}:[0-9]{2}\] [A-Z][a-z]+' "${DOCS[@]}" "${ADRS[@]}" README.md 2>/dev/null | sort -u)
+  [ "$invalid" -eq 0 ] && ok "âncoras no corpo dos documentos conferem"
+
   # Linhas TRANSCRICAO sem timestamp válido na coluna Localização
   bad_loc="$(tracker_rows | awk -F'|' '$6 ~ /TRANSCRICAO/ && $7 !~ /\[[0-9][0-9]:[0-9][0-9]\] [A-Z][a-z]+/ {gsub(/ /,"",$2); print $2}')"
   [ -n "$bad_loc" ] && while read -r id; do fail "linha TRANSCRICAO sem [hh:mm] Nome: $id"; done <<< "$bad_loc"

@@ -12,3 +12,10 @@ Este diretório guarda os ADRs (Architectural Decision Records) da feature **Sis
 
 | ADR | Decisão | Status |
 | --- | --- | --- |
+| [ADR-001](./ADR-001-outbox-no-mysql.md) | Outbox transacional no MySQL | Aceito |
+| [ADR-002](./ADR-002-worker-separado-em-polling.md) | Worker em processo separado com polling de 2s | Aceito |
+| [ADR-003](./ADR-003-retry-backoff-e-dlq.md) | Retry com backoff 1m/5m/30m/2h/12h e DLQ em tabela separada | Aceito |
+| [ADR-004](./ADR-004-hmac-sha256-secret-por-endpoint.md) | HMAC-SHA256 com secret por endpoint e rotação com grace de 24h | Aceito |
+| [ADR-005](./ADR-005-at-least-once-com-x-event-id.md) | At-least-once com deduplicação por `X-Event-Id` | Aceito |
+| [ADR-006](./ADR-006-reuso-dos-padroes-do-projeto.md) | Reuso dos padrões existentes do projeto | Aceito |
+| [ADR-007](./ADR-007-snapshot-do-payload-na-insercao.md) | Snapshot do payload na inserção da outbox | Aceito |

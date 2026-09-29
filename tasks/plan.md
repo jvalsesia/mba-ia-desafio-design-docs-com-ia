@@ -15,7 +15,7 @@ Produzir 7 ADRs, RFC, FDD, PRD, Tracker e README do processo, nessa ordem, a par
 - **Defaults da §10 do SPEC aplicados:**
   - retentativas: 1 envio + 5 retentativas;
   - rotas: `/customers/:customerId/webhooks` para criar e listar, `/webhooks/:id` para o resto;
-  - rotação: assinar só com a secret nova;
+  - rotação: duas assinaturas durante o grace de 24h (revisto; ver SPEC §10);
   - tracing: correlação de IDs.
 - **Commits:** um por tarefa, no branch atual, só local. Push e PR exigem pedir antes.
 
@@ -37,9 +37,9 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 - [x] T1: Script de verificação e padronização de `docs/adrs/README.md`
 
 ### Fase 2: Decisões (ADRs)
-- [ ] T2: ADR-001 (outbox) e ADR-002 (worker em polling)
-- [ ] T3: ADR-003 (retry/DLQ) e ADR-004 (HMAC)
-- [ ] T4: ADR-005 (at-least-once), ADR-006 (reuso de padrões) e ADR-007 (snapshot)
+- [x] T2: ADR-001 (outbox) e ADR-002 (worker em polling)
+- [x] T3: ADR-003 (retry/DLQ) e ADR-004 (HMAC)
+- [x] T4: ADR-005 (at-least-once), ADR-006 (reuso de padrões) e ADR-007 (snapshot)
 - [ ] **CP-A:** checkpoint dos ADRs
 
 ### Fase 3: Proposta

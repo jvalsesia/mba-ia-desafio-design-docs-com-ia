@@ -59,3 +59,28 @@ Registro cronológico de como o pacote foi produzido: prompts usados, o que a IA
 - um ID duplicado.
 
 O script falhou em todos os casos (10 falhas, exit 1). No repositório real: 0 falhas, 4 avisos (documentos ainda não escritos).
+
+---
+
+## Ciclo 1: ADRs (T2, T3, T4)
+
+**Instrução de trabalho** (derivada do SPEC §2 e §5; a IA escreveu os ADRs a partir da base de fatos da §8, e não de um resumo livre da transcrição):
+
+```text
+Escreva os ADR-001 a ADR-007 no template MADR do SPEC §5 (Status, Contexto, Decisão,
+Alternativas Consideradas, Consequências com Positivas/Negativas/Trade-off, Referências).
+Regras:
+- toda afirmação cita [hh:mm] Nome da transcrição ou um caminho real do código;
+- cada alternativa precisa ter sido discutida na reunião (ou ser plausível e marcada como tal),
+  com o trade-off que levou ao descarte;
+- itens da tabela §8.4 do SPEC (e-mail, rate limit, dashboard, arquivamento, multi-worker)
+  só podem aparecer como adiados/fora de escopo, nunca como decisão;
+- arquivos novos propostos levam o marcador "(novo)";
+- IDs inline em negrito: ADR-NNN, ADR-NNN-ALT-NN, ADR-NNN-CONS-NN, cada um com linha no Tracker.
+```
+
+**Correção antes de escrever, em um default aprovado:** ao redigir o ADR-004, a IA percebeu que o default aprovado para a questão 3 do SPEC ("assinar só com a secret nova durante as 24h de rotação") anulava o próprio grace period. Um cliente que ainda verifica com a secret antiga rejeitaria todas as entregas. A IA voltou ao usuário, que escolheu **duas assinaturas no `X-Signature` durante as 24h**. SPEC §10 e plano atualizados.
+
+**Ajuste na verificação:** o script só conferia os timestamps do Tracker. Foi estendido para conferir também toda âncora `[hh:mm] Nome` citada no corpo dos documentos, porque uma âncora inventada no ADR passaria despercebida se o Tracker estivesse correto.
+
+**Resultado do verify:** 0 falhas. 58 linhas no Tracker, 91% TRANSCRICAO, 5 CODIGO, cobertura de 100%. As menções da seção 12 (Redis, arquivamento, multi-worker, e-mail, exactly-once) aparecem só como alternativa descartada, limitação ou fora de escopo.
