@@ -119,3 +119,24 @@ Output: numbered findings with file+line, severity, exact text, evidence, concre
 **Lição de processo:** a verificação automática confirmava que cada timestamp **existe**, mas não que a fala **diz** o que o documento atribui a ela. Três dos achados (at-most-once, ordenação, latência) eram exatamente isso. A revisão semântica continua obrigatória em todos os checkpoints.
 
 **Verify após as correções:** 0 falhas. 60 linhas no Tracker, 91% TRANSCRICAO, cobertura de 100%.
+
+---
+
+## Ciclo 2: RFC (T5)
+
+**Instrução de trabalho:**
+
+```text
+Escreva docs/RFC.md em nível de ARQUITETURA (2 a 4 páginas, ~900–2000 palavras): metadados
+(autor, status, data, os 5 participantes como revisores), TL;DR, contexto e problema, proposta
+técnica (componentes e fluxo macro, SEM JSON, DDL ou matriz de erros; isso é do FDD),
+alternativas descartadas na reunião com o trade-off de cada uma, questões em aberto que foram
+LEVANTADAS na reunião e não decididas/adiadas, impacto e riscos, e links para os 7 ADRs.
+Inclua como questões em aberto os achados do CP-A (ordenação sob retry, contagem de tentativas).
+```
+
+**Ajuste durante a escrita:**
+- A mitigação do RFC-RISK-01 ("envio concorrente entre pedidos distintos do lote") não tem origem na reunião. Foi rotulada como *Proposta de design*.
+- A rota de mudança de status citada no diagrama (`PATCH /orders/:id/status`) foi conferida em `src/modules/orders/order.routes.ts` antes de entrar no texto.
+
+**Resultado do verify:** 0 falhas. O RFC tem 1692 palavras e linka os 7 ADRs. 81 linhas no Tracker, 93% TRANSCRICAO.

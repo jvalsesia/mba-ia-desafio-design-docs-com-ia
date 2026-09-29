@@ -43,7 +43,7 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 - [x] **CP-A:** checkpoint dos ADRs
 
 ### Fase 3: Proposta
-- [ ] T5: RFC
+- [x] T5: RFC
 - [ ] **CP-B:** checkpoint do RFC
 
 ### Fase 4: Implementação (FDD)
