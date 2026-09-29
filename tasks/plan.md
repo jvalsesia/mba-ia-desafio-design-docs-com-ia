@@ -47,9 +47,9 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 - [x] **CP-B:** checkpoint do RFC
 
 ### Fase 4: Implementação (FDD)
-- [ ] T6: FDD fatia 1: contexto, objetivos, escopo, fluxos, integração com o sistema existente
-- [ ] T7: FDD fatia 2: contratos públicos e matriz de erros
-- [ ] T8: FDD fatia 3: resiliência, observabilidade, dependências, critérios de aceite, riscos
+- [x] T6: FDD fatia 1: contexto, objetivos, escopo, fluxos, integração com o sistema existente
+- [x] T7: FDD fatia 2: contratos públicos e matriz de erros
+- [x] T8: FDD fatia 3: resiliência, observabilidade, dependências, critérios de aceite, riscos
 - [ ] **CP-C:** checkpoint do FDD
 
 ### Fase 5: Produto e rastreabilidade

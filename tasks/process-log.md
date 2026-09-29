@@ -161,3 +161,32 @@ Inclua como questões em aberto os achados do CP-A (ordenação sob retry, conta
 **Padrão identificado:** a IA tende a juntar em uma única citação afirmações de falas próximas ("colar" a âncora do bloco de conversa). A partir daqui, as linhas do Tracker que cobrem mais de uma afirmação citam as âncoras secundárias no resumo.
 
 **Verify:** 0 falhas; RFC com 1837 palavras; 82 linhas no Tracker, 93% TRANSCRICAO.
+
+---
+
+## Ciclo 3: FDD (T6, T7, T8)
+
+**Instrução de trabalho:**
+
+```text
+Escreva docs/FDD.md, o documento de IMPLEMENTAÇÃO, acionável para um dev começar a codar.
+Seções obrigatórias do enunciado + "Integração com o sistema existente" com >= 4 caminhos REAIS
+(conferir cada um no repositório antes de citar). Antes de escrever, leia no código: src/app.ts
+(prefixo /api/v1), order.controller.ts, order.routes.ts, validate.middleware.ts, env.ts,
+server.ts, schema.prisma completo e o formato do orderNumber. Contratos com request, response
+e status para os 7 endpoints + o contrato de saída (payload snake_case de [09:43] Diego). Matriz
+de erros WEBHOOK_* mapeada para as classes que EXISTEM em http-errors.ts. Toda escolha não
+fechada na reunião leva "Proposta de design" e a âncora da decisão que a motivou.
+Não re-argumente decisões: linke o ADR.
+```
+
+**Achados da própria IA ao ler o código, antes de escrever** (viraram decisões explícitas no FDD):
+- `NotFoundError` fixa o código em `NOT_FOUND` (o construtor só recebe `resource`). Um `WEBHOOK_NOT_FOUND` precisa estender `AppError` diretamente. Sem essa leitura, o FDD mandaria "reusar `NotFoundError`", o que não compila com o código desejado.
+- `validate()` converte todo `ZodError` em `VALIDATION_ERROR`. Como a Sofia decidiu que a checagem `https` é "só uma validação no schema Zod" (`[09:23] Sofia`), o código `WEBHOOK_INVALID_URL` citado por Bruno aparece como `details[].message`, e não como `error.code`. Essa tensão entre duas falas foi resolvida explicitamente.
+- O MySQL `TEXT` guarda no máximo 65.535 bytes. Com o payload em `TEXT`, um evento acima de 64KB faria a inserção falhar **dentro** da transação e bloquearia a mudança de status. Decisão: `MEDIUMTEXT` e checagem de tamanho no worker.
+
+**Bug no próprio desenho, pego durante a revisão do texto:** a primeira versão montava o router de webhooks na raiz (`router.use(buildWebhookRouter())`). Como os routers do projeto fazem `router.use(authenticate)` internamente, isso exigiria JWT em **todas** as rotas, inclusive `/auth/login`. Corrigido para três routers montados com prefixo, com `mergeParams` na rota aninhada em customers.
+
+**Ajuste de rastreabilidade:** os sub-itens `FDD-FLUXO-02a…g` não seriam capturados pela checagem de cobertura (o regex exige limite de palavra após o número). Foram renomeados para `FDD-WORKER-01…07`.
+
+**Resultado do verify:** 0 falhas, 0 avisos. FDD com 7 endpoints e 13 códigos `WEBHOOK_*`. Tracker com 195 linhas: 83% TRANSCRICAO, 33 CODIGO, cobertura de 100%.
