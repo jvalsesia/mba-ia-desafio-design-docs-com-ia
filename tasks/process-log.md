@@ -263,3 +263,19 @@ mitigação; decisões como trade-offs vistos pelo cliente, linkando os ADRs.
 **Lição de processo:** revisar cada documento isoladamente não bastou. O achado 2 só aparece quando se lê a promessa do PRD ao lado do pseudocódigo do FDD.
 
 **Verify:** 0 falhas. 281 linhas no Tracker, 87% TRANSCRICAO, 34 CODIGO, cobertura de 100%.
+
+---
+
+## T12: Revisão final contra o checklist do enunciado
+
+Conferido item por item, com os comandos registrados no histórico da sessão:
+
+- **PRD:** as 12 seções presentes ("Fora de escopo" em §5.2); 15 FRs; meta quantitativa (95% abaixo de 10s, 3 de 3 clientes, fim de novembro); 8 itens fora de escopo; 7 riscos com probabilidade, impacto e mitigação.
+- **RFC:** 8 seções; 5 participantes como revisores; 5 alternativas com trade-off; 5 questões em aberto da reunião, mais 2 pontos para confirmação separados; links para os 7 ADRs; 1837 palavras.
+- **FDD:** as 12 seções, incluindo "Integração com o sistema existente" com 19 caminhos reais; 7 endpoints com request, response e tabela de status, mais o contrato de saída; matriz `WEBHOOK_*` com 13 códigos; métricas (§9.1), logs (§9.2) e tracing (§9.3).
+- **ADRs:** 7 arquivos no padrão, com as 5 seções; as 6 decisões principais cobertas; 5 ADRs citam arquivos reais do código.
+- **Tracker:** formato exato; cobertura de 100%; 87% TRANSCRICAO com timestamp e falante validados contra a transcrição; 34 linhas CODIGO com caminho existente.
+- **README:** 6 seções; ferramentas listadas; 4 prompts em bloco de código; 7 iterações concretas.
+- **Consistência:** `bash tasks/verify-docs.sh` com 0 falhas e 0 avisos, incluindo "nenhum arquivo protegido alterado" contra `main` e "todos os caminhos existentes citados resolvem".
+
+**Ciclos principais:** 5 ciclos de geração → revisão → correção (spec, ADRs, RFC, FDD, revisão cruzada) e a revisão final. Ao todo, as quatro revisões adversariais trouxeram 11 + 9 + 15 + 8 achados, todos tratados.
