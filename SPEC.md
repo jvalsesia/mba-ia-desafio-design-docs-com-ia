@@ -50,8 +50,8 @@ Não há build: o entregável é Markdown. Os comandos abaixo são as verificaç
 # Rodar todas as verificações (sai com código != 0 se alguma falhar)
 bash tasks/verify-docs.sh
 
-# 1. Código da aplicação intocado (deve imprimir nada)
-git diff --stat main -- src prisma tests package.json package-lock.json tsconfig.json tsconfig.build.json vitest.config.ts .eslintrc.json .prettierrc docker-compose.yml .env.example TRANSCRICAO.md
+# 1. Código da aplicação intocado desde o último commit do repositório base, e7f6311 (deve imprimir nada)
+git diff --stat e7f6311 -- src prisma tests package.json package-lock.json tsconfig.json tsconfig.build.json vitest.config.ts .eslintrc.json .prettierrc docker-compose.yml .env.example TRANSCRICAO.md
 
 # 2. ADRs: entre 5 e 8 arquivos, nome no padrão (a segunda linha deve imprimir nada)
 ls docs/adrs/ADR-[0-9][0-9][0-9]-*.md | wc -l
