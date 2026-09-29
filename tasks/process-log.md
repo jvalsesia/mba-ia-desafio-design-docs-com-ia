@@ -190,3 +190,23 @@ Não re-argumente decisões: linke o ADR.
 **Ajuste de rastreabilidade:** os sub-itens `FDD-FLUXO-02a…g` não seriam capturados pela checagem de cobertura (o regex exige limite de palavra após o número). Foram renomeados para `FDD-WORKER-01…07`.
 
 **Resultado do verify:** 0 falhas, 0 avisos. FDD com 7 endpoints e 13 códigos `WEBHOOK_*`. Tracker com 195 linhas: 83% TRANSCRICAO, 33 CODIGO, cobertura de 100%.
+
+---
+
+## Ciclo 4: PRD (T9)
+
+Escrito em paralelo com a revisão adversarial do FDD, porque não depende do conteúdo técnico em revisão.
+
+**Instrução de trabalho:**
+
+```text
+Escreva docs/PRD.md em LINGUAGEM DE PRODUTO, com as 12 seções do enunciado. Sem nomes de
+tabelas, arquivos ou classes: isso é do FDD. >= 8 requisitos funcionais só da §8.2 do SPEC;
+objetivos com meta numérica ancorada (não invente baseline nem porcentagens que ninguém disse);
+"Fora de escopo" a partir da §8.4 do SPEC; riscos em tabela com probabilidade, impacto e
+mitigação; decisões como trade-offs vistos pelo cliente, linkando os ADRs.
+```
+
+**Cuidado aplicado:** a meta "95% abaixo de 10s" (PRD-OBJ-01) traduz o limite de 10s de `[09:02] Marcos` em um percentil mensurável. O número 95% é a forma de medir, não um requisito novo, e o FDD usa o mesmo p95 (FDD-OBJ-01). Nenhum baseline de latência foi inventado, porque hoje não há notificação.
+
+**Resultado do verify:** 0 falhas. O PRD tem 15 requisitos funcionais, 11 não funcionais e 8 itens fora de escopo. Tracker com 279 linhas: 88% TRANSCRICAO, 33 CODIGO, cobertura de 100%.

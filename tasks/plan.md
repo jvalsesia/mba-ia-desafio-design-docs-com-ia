@@ -53,7 +53,7 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 - [ ] **CP-C:** checkpoint do FDD
 
 ### Fase 5: Produto e rastreabilidade
-- [ ] T9: PRD
+- [x] T9: PRD
 - [ ] T10: Consolidação do Tracker
 - [ ] **CP-D:** checkpoint do pacote técnico
 
