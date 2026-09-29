@@ -11,7 +11,7 @@ Cada linha liga um item registrado nos documentos à sua origem. O ID é o mesmo
 **Resumo:** 281 itens rastreados.
 - Por documento: PRD 85, RFC 22, ADRs 60, FDD 114.
 - Por fonte: TRANSCRICAO 247 (87%), CODIGO 34.
-- Cobertura: 100% dos IDs dos documentos têm linha aqui, conferida por `bash tasks/verify-docs.sh`, que valida também cada `[hh:mm] Nome` contra a transcrição e cada caminho contra o repositório.
+- Cobertura: 100% dos IDs dos documentos têm linha aqui, conferida pelo script [`tasks/verify-docs.sh`](https://github.com/jvalsesia/mba-ia-desafio-design-docs-com-ia/blob/jvalsesia/mba-ia-desafio-design-docs-com-ia/tasks/verify-docs.sh) (no branch de trabalho), que valida também cada `[hh:mm] Nome` contra a transcrição e cada caminho contra o repositório.
 
 A ordem das linhas segue a leitura sugerida: PRD → RFC → ADRs → FDD.
 
