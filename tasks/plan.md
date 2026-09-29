@@ -54,7 +54,7 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 
 ### Fase 5: Produto e rastreabilidade
 - [x] T9: PRD
-- [ ] T10: Consolidação do Tracker
+- [x] T10: Consolidação do Tracker
 - [ ] **CP-D:** checkpoint do pacote técnico
 
 ### Fase 6: Processo e fechamento
