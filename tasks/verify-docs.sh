@@ -26,8 +26,10 @@ for f in docs/adrs/ADR-*.md; do [ -f "$f" ] && ADRS+=("$f"); done
 
 # ---------------------------------------------------------------------------
 section "1. Código da aplicação e transcrição intocados"
-BASE_REF="main"
-git rev-parse --verify -q "$BASE_REF" >/dev/null || BASE_REF="$(git rev-list --max-parents=0 HEAD | tail -1)"
+# Base = último commit do repositório base do desafio (antes de qualquer trabalho desta entrega).
+# Não usar "main": depois do merge da entrega, main já contém o trabalho e a comparação vira tautologia.
+BASE_REF="e7f6311"
+git rev-parse --verify -q "$BASE_REF^{commit}" >/dev/null || BASE_REF="$(git rev-list --max-parents=0 HEAD | tail -1)"
 PROTECTED=(src prisma tests package.json package-lock.json tsconfig.json tsconfig.build.json vitest.config.ts .eslintrc.json .prettierrc .prettierignore docker-compose.yml .env.example TRANSCRICAO.md)
 changed="$(git diff --name-only "$BASE_REF" -- "${PROTECTED[@]}"; git ls-files --others --exclude-standard -- src prisma tests)"
 if [ -n "$changed" ]; then

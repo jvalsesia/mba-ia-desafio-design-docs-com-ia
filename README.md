@@ -35,7 +35,7 @@ T1 verify-docs.sh ─▶ ADRs ─▶ CP-A ─▶ RFC ─▶ CP-B ─▶ FDD ─�
 1. **Spec antes de qualquer documento.** Em vez de pedir "gere um PRD", o primeiro passo foi o [`SPEC.md`](./SPEC.md). A IA leu a transcrição inteira e os pontos do código, listou premissas e fez 3 perguntas de escopo (spec único ou por documento? como registrar o processo sem fabricar? quantos ADRs?). Depois montou uma **base de fatos** (§8 do SPEC) com:
    - requisitos funcionais e não funcionais com timestamp;
    - uma tabela explícita do que foi descartado ou adiado;
-   - 13 arquivos reais do código e como cada um se liga à feature;
+   - 13 pontos de integração no código (16 arquivos reais) e como cada um se liga à feature;
    - as divergências entre transcrição e código.
 
    Todos os documentos foram escritos **a partir dessa base**, e não de uma nova leitura livre da transcrição.
@@ -44,7 +44,15 @@ T1 verify-docs.sh ─▶ ADRs ─▶ CP-A ─▶ RFC ─▶ CP-B ─▶ FDD ─�
 4. **Checkpoint adversarial após cada documento** (CP-A a CP-D). Um subagente sem o histórico da conversa recebia os arquivos e uma lista de verificação específica daquele documento. Os achados eram corrigidos e registrados.
 5. **Diário do processo.** Tudo o que está nas seções abaixo vem de [`tasks/process-log.md`](./tasks/process-log.md), escrito durante o trabalho, e não reconstruído no fim.
 
+**Divisão de papéis.** A IA produziu e revisou. As decisões ficaram comigo:
+- as três escolhas de escopo do spec (spec único, diário do processo versionado, 6 ADRs principais + 1);
+- a aprovação do spec e do plano;
+- a mudança na assinatura durante a rotação de secret (item 1 de "Iterações e ajustes");
+- a autorização de push, PR e merge.
+
 ## Prompts customizados
+
+O prompt 1 é o que digitei. Os prompts 2 a 4 foram redigidos pelo agente principal a partir das regras do SPEC que aprovei, e usados por ele mesmo (2) e pelos subagentes revisores (3 e 4). Estão aqui porque são eles que definem a qualidade do resultado.
 
 **1. Início do processo** (comando do plugin, com o enunciado como argumento). A skill `spec-driven-development` transforma esse comando em entrevista → premissas → spec com aprovação.
 
@@ -97,15 +105,15 @@ Zod usage, Node 20 APIs)? Any claim about existing code that is false?
 
 ## Iterações e ajustes
 
-Houve **5 ciclos principais** de geração → revisão → correção (spec, ADRs, RFC, FDD e revisão cruzada do pacote), além da revisão final. Os principais momentos em que a IA errou ou ficou rasa:
+Houve **5 ciclos principais** de geração → revisão → correção (spec, ADRs, RFC, FDD e revisão cruzada do pacote), além da revisão final. As quatro revisões adversariais trouxeram **43 achados** (11 + 9 + 15 + 8), todos tratados. Os principais momentos em que a IA errou ou ficou rasa:
 
-1. **Default aprovado que anulava a própria regra** (antes do ADR-004). Uma das defaults aprovadas no SPEC era "durante as 24h de rotação, assinar só com a secret nova". Ao redigir o ADR, a IA percebeu que isso tornava o grace period inútil: um cliente que ainda verifica com a antiga rejeitaria todas as entregas. Voltei a decidir e escolhemos **duas assinaturas no `X-Signature` durante as 24h**.
+1. **Default aprovado que anulava a própria regra** (antes do ADR-004). Um dos defaults aprovados no SPEC era "durante as 24h de rotação, assinar só com a secret nova". Ao redigir o ADR, a IA percebeu que isso tornava o grace period inútil: um cliente que ainda verifica com a antiga rejeitaria todas as entregas. A IA parou e me devolveu a decisão, e escolhi **duas assinaturas no `X-Signature` durante as 24h**.
 
 2. **Alternativa "discutida" que ninguém discutiu** (CP-A). O ADR-005 listava "at-most-once" como alternativa descartada na reunião, com âncora `[09:16] Diego`. Nessa fala, o Diego está argumentando contra 3 tentativas. A alternativa foi removida. No mesmo checkpoint:
    - O ADR-002 afirmava que o cliente recebe os eventos de um pedido em ordem. O revisor mostrou que um evento em backoff pode ser ultrapassado pelo seguinte do mesmo pedido. Isso virou uma limitação documentada e um ponto para confirmação no RFC.
    - "Latência mínima de 2s" era, na fala original, "2 segundos **no pior caso**".
 
-3. **Âncora "emprestada" de uma fala vizinha** (CP-B). O RFC dizia que o risco de um usuário configurar webhook de outro cliente seria "aceito com auditoria via logs (`[09:37] Sofia`)". A Sofia só disse "por enquanto sim, mais pra frente a gente pode endurecer". A auditoria em log tinha sido pedida um minuto antes, para o **replay** da DLQ. Esse padrão de colar a âncora do trecho próximo apareceu mais de uma vez. Por isso passei a exigir que linhas com mais de uma afirmação citem as âncoras secundárias. No mesmo ciclo, a "contagem de tentativas" deixou de ser listada como questão em aberto **da reunião** (ninguém a questionou) e foi para uma subseção separada de pontos da análise do autor.
+3. **Âncora "emprestada" de uma fala vizinha** (CP-B). O RFC dizia que o risco de um usuário configurar webhook de outro cliente seria "aceito com auditoria via logs (`[09:37] Sofia`)". A Sofia só disse "por enquanto sim, mais pra frente a gente pode endurecer". A auditoria em log tinha sido pedida um minuto antes, para o **replay** da DLQ. Esse padrão de colar a âncora do trecho próximo apareceu mais de uma vez. Por isso, a partir dali, toda linha do Tracker com mais de uma afirmação passou a citar também as âncoras secundárias. No mesmo ciclo, a "contagem de tentativas" deixou de ser listada como questão em aberto **da reunião** (ninguém a questionou) e foi para uma subseção separada de pontos da análise do autor.
 
 4. **Ambiguidade real na transcrição.** A reunião decidiu "5 tentativas", mas a agenda 1m/5m/30m/2h/12h tem **5 intervalos**, e só com 1 envio + 5 retentativas a soma dá as "quase 15 horas" que o Diego citou. A IA achou isso na fase de spec. A ambiguidade ficou registrada no ADR-003, com a interpretação adotada e um pedido de confirmação no RFC. Ela não foi resolvida em silêncio.
 
@@ -120,6 +128,8 @@ Houve **5 ciclos principais** de geração → revisão → correção (spec, AD
 
 7. **Limites da verificação automática.** O script confirmava que cada timestamp **existe**, mas não que a fala **diz** aquilo. Foi estendido para conferir também as âncoras no corpo dos documentos, e não só no Tracker. Mesmo assim, os erros mais relevantes dos itens 2 e 3 só apareceram na revisão semântica. As duas camadas se mostraram necessárias.
 
+8. **A própria rede de segurança tinha um furo** (revisão do README, depois do merge). O script conferia se `src/`, `prisma/` e `tests/` estavam intocados comparando com o `main`. Depois do merge da entrega, o `main` passou a conter o trabalho, e a checagem ficou tautológica: passaria mesmo com o código alterado. A base foi fixada no último commit do repositório base (`e7f6311`), e um teste com alteração proposital em `src/server.ts` confirmou que a checagem volta a falhar.
+
 ## Como navegar a entrega
 
 | Ordem | Arquivo | O que é |
@@ -131,4 +141,4 @@ Houve **5 ciclos principais** de geração → revisão → correção (spec, AD
 | 5 | [`docs/TRACKER.md`](./docs/TRACKER.md) | A origem de cada item (transcrição ou código) |
 | Bastidores | [`SPEC.md`](./SPEC.md), [`tasks/plan.md`](./tasks/plan.md), [`tasks/todo.md`](./tasks/todo.md), [`tasks/process-log.md`](./tasks/process-log.md), [`tasks/verify-docs.sh`](./tasks/verify-docs.sh) | Spec aprovado, plano, diário de cada ciclo e o script de verificação (`bash tasks/verify-docs.sh`) |
 
-O código da aplicação (`src/`, `prisma/`, `tests/` e configurações) e a transcrição não foram alterados. O próprio script de verificação confere isso contra o `main`.
+O código da aplicação (`src/`, `prisma/`, `tests/` e configurações) e a transcrição não foram alterados. O script de verificação confere isso contra o último commit do repositório base (`e7f6311`).

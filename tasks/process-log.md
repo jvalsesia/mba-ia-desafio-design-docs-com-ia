@@ -279,3 +279,16 @@ Conferido item por item, com os comandos registrados no histórico da sessão:
 - **Consistência:** `bash tasks/verify-docs.sh` com 0 falhas e 0 avisos, incluindo "nenhum arquivo protegido alterado" contra `main` e "todos os caminhos existentes citados resolvem".
 
 **Ciclos principais:** 5 ciclos de geração → revisão → correção (spec, ADRs, RFC, FDD, revisão cruzada) e a revisão final. Ao todo, as quatro revisões adversariais trouxeram 11 + 9 + 15 + 8 achados, todos tratados.
+
+---
+
+## Revisão do README (pós-merge)
+
+**Prompt do usuário:** `o desafio está completo revise o @README.md`
+
+**Achados e correções:**
+- **Bug no `verify-docs.sh`:** a checagem de arquivos protegidos comparava com `main`. Após o merge da entrega, `main` passou a conter o trabalho e a checagem ficou tautológica. A base foi fixada em `e7f6311`, o último commit do repositório base. Teste negativo: com `// x` acrescentado a `src/server.ts`, o script falha com "arquivo protegido alterado"; o arquivo foi restaurado em seguida.
+- **Precisão:** "13 arquivos reais" eram 13 **pontos de integração** (16 arquivos) na §8.5 do SPEC.
+- **Transparência:** os prompts 2 a 4 foram redigidos pelo agente principal a partir do SPEC, e não digitados pelo usuário. Isso agora está dito explicitamente.
+- **Atribuição:** frases em primeira pessoa que atribuíam ao usuário ações da IA ("passei a exigir…") foram reescritas. Foi acrescentada uma "Divisão de papéis" com as decisões realmente tomadas pelo usuário.
+- Contagem total de achados das revisões (43) e o item 8 de "Iterações e ajustes".
