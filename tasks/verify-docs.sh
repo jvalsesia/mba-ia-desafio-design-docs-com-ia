@@ -72,7 +72,7 @@ while read -r p; do
   [ -z "$p" ] && continue
   if [ ! -e "$p" ]; then fail "caminho citado não existe: $p"; missing=1; fi
 done < <(grep -ohE '\b(src|prisma|tests)/[A-Za-z0-9_./-]+\.(ts|prisma|sql|json)\b' "${SCAN[@]}" 2>/dev/null \
-          | sort -u | grep -vE '^(src/worker\.ts|src/modules/webhooks/)' || true)
+          | sort -u | grep -vE '^(src/worker\.ts|src/modules/webhooks/|tests/webhooks)' || true)
 [ "$missing" -eq 0 ] && ok "todos os caminhos existentes citados resolvem"
 
 # ---------------------------------------------------------------------------

@@ -44,7 +44,7 @@ T2, T3 e T4 são independentes entre si. As demais tarefas são sequenciais: cad
 
 ### Fase 3: Proposta
 - [x] T5: RFC
-- [ ] **CP-B:** checkpoint do RFC
+- [x] **CP-B:** checkpoint do RFC
 
 ### Fase 4: Implementação (FDD)
 - [ ] T6: FDD fatia 1: contexto, objetivos, escopo, fluxos, integração com o sistema existente

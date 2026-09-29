@@ -69,9 +69,9 @@ Cada linha liga um item registrado nos documentos à sua origem. O ID é o mesmo
 | ADR-007-CONS-03 | `docs/adrs/ADR-007-snapshot-do-payload-na-insercao.md` | Consequência negativa | Mais dados por linha, limitado por payload enxuto sem items | TRANSCRICAO | [09:43] Diego |
 | ADR-007-CONS-04 | `docs/adrs/ADR-007-snapshot-do-payload-na-insercao.md` | Consequência negativa | Limite de 64KB conhecido na inserção; FDD define onde validar | TRANSCRICAO | [09:24] Larissa |
 | RFC-PROP-01 | `docs/RFC.md` | Proposta técnica | publishWebhookEvent(tx) grava snapshot na outbox dentro de changeStatus, com filtro por status | TRANSCRICAO | [09:41] Bruno |
-| RFC-PROP-02 | `docs/RFC.md` | Proposta técnica | Worker separado (npm run worker), polling de 2s, instância única | TRANSCRICAO | [09:11] Larissa |
-| RFC-PROP-03 | `docs/RFC.md` | Proposta técnica | Timeout de 10s, retry 1m/5m/30m/2h/12h, DLQ e replay por ADMIN com auditoria | TRANSCRICAO | [09:17] Larissa |
-| RFC-PROP-04 | `docs/RFC.md` | Proposta técnica | HMAC-SHA256 com secret por endpoint, at-least-once com X-Event-Id, https e 64KB | TRANSCRICAO | [09:22] Sofia |
+| RFC-PROP-02 | `docs/RFC.md` | Proposta técnica | Worker em processo separado com polling de 2s e instância única; npm run worker em [09:11] Larissa; polling em [09:09] Diego | TRANSCRICAO | [09:11] Diego |
+| RFC-PROP-03 | `docs/RFC.md` | Proposta técnica | Retry 1m/5m/30m/2h/12h; timeout em [09:42] Diego; DLQ em [09:18] Diego; ADMIN e auditoria em [09:36] Sofia | TRANSCRICAO | [09:17] Larissa |
+| RFC-PROP-04 | `docs/RFC.md` | Proposta técnica | HMAC-SHA256 com secret por endpoint; at-least-once em [09:26] Larissa; https em [09:23] Sofia; 64KB em [09:24] Larissa | TRANSCRICAO | [09:22] Sofia |
 | RFC-PROP-05 | `docs/RFC.md` | Proposta técnica | API de CRUD, rotação, deliveries e replay no módulo webhooks seguindo os padrões do projeto | TRANSCRICAO | [09:30] Larissa |
 | RFC-ALT-01 | `docs/RFC.md` | Alternativa descartada | Disparo síncrono dentro de changeStatus | TRANSCRICAO | [09:06] Diego |
 | RFC-ALT-02 | `docs/RFC.md` | Alternativa descartada | Redis Streams ou fila externa: infra nova, overengineering | TRANSCRICAO | [09:07] Diego |
@@ -79,13 +79,14 @@ Cada linha liga um item registrado nos documentos à sua origem. O ID é o mesmo
 | RFC-ALT-04 | `docs/RFC.md` | Alternativa descartada | Exactly-once: coordenação dos dois lados, complexidade | TRANSCRICAO | [09:25] Diego |
 | RFC-ALT-05 | `docs/RFC.md` | Alternativa descartada | Retry indefinido ou apenas 3 tentativas | TRANSCRICAO | [09:16] Diego |
 | RFC-OPEN-01 | `docs/RFC.md` | Questão em aberto | Rate limiting de saída: observar e decidir depois | TRANSCRICAO | [09:39] Larissa |
-| RFC-OPEN-02 | `docs/RFC.md` | Questão em aberto | Contagem de tentativas: 5 no resumo versus 5 intervalos e quase 15h | TRANSCRICAO | [09:17] Diego |
-| RFC-OPEN-03 | `docs/RFC.md` | Questão em aberto | customer_id no body ou no path | TRANSCRICAO | [09:32] Larissa |
-| RFC-OPEN-04 | `docs/RFC.md` | Questão em aberto | Escala multi-worker e ordenação por pedido sob retry | TRANSCRICAO | [09:13] Diego |
-| RFC-OPEN-05 | `docs/RFC.md` | Questão em aberto | Endurecimento da autorização do CRUD de webhooks | TRANSCRICAO | [09:37] Sofia |
-| RFC-OPEN-06 | `docs/RFC.md` | Questão em aberto (adiada) | Aviso por e-mail ao cliente sobre webhook com falha: próxima fase | TRANSCRICAO | [09:37] Larissa |
-| RFC-RISK-01 | `docs/RFC.md` | Risco | Worker único: cliente lento (timeout 10s) atrasa os demais | TRANSCRICAO | [09:42] Diego |
+| RFC-OPEN-02 | `docs/RFC.md` | Questão em aberto | customer_id no body ou no path; path proposto como design | TRANSCRICAO | [09:32] Larissa |
+| RFC-OPEN-03 | `docs/RFC.md` | Questão em aberto (adiada) | Escala multi-worker: particionar por order_id ou lock pessimista | TRANSCRICAO | [09:13] Diego |
+| RFC-OPEN-04 | `docs/RFC.md` | Questão em aberto | Endurecimento da autorização do CRUD (hoje qualquer role autenticada); pergunta de [09:36] Marcos | TRANSCRICAO | [09:37] Sofia |
+| RFC-OPEN-05 | `docs/RFC.md` | Questão em aberto (adiada) | Aviso por e-mail ao cliente sobre webhook com falha: próxima fase | TRANSCRICAO | [09:37] Larissa |
+| RFC-CONF-01 | `docs/RFC.md` | Ponto para confirmação (análise) | 5 tentativas decididas versus 5 intervalos e quase 15h; adotado 1 envio + 5 retentativas | TRANSCRICAO | [09:17] Diego |
+| RFC-CONF-02 | `docs/RFC.md` | Ponto para confirmação (análise) | Evento em backoff pode ser ultrapassado pelo seguinte do mesmo pedido | TRANSCRICAO | [09:12] Diego |
+| RFC-RISK-01 | `docs/RFC.md` | Risco (análise) | Worker único: cliente lento (timeout 10s) atrasa os demais além da meta de 10s de [09:02] Marcos | TRANSCRICAO | [09:42] Diego |
 | RFC-RISK-02 | `docs/RFC.md` | Risco | Crescimento da outbox sem arquivamento nesta fase | TRANSCRICAO | [09:08] Diego |
 | RFC-RISK-03 | `docs/RFC.md` | Risco | Vazamento de secret (precedente real) | TRANSCRICAO | [09:22] Diego |
-| RFC-RISK-04 | `docs/RFC.md` | Risco | Usuário autenticado configura webhook de outro customer | TRANSCRICAO | [09:37] Sofia |
+| RFC-RISK-04 | `docs/RFC.md` | Risco (análise) | Usuário autenticado configura webhook de outro customer; endurecimento posterior | TRANSCRICAO | [09:37] Sofia |
 | RFC-RISK-05 | `docs/RFC.md` | Risco | Estouro do prazo da Atlas (fim de novembro, 3 sprints) | TRANSCRICAO | [09:46] Larissa |

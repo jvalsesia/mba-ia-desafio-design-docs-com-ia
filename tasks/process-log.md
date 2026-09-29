@@ -140,3 +140,24 @@ Inclua como questões em aberto os achados do CP-A (ordenação sob retry, conta
 - A rota de mudança de status citada no diagrama (`PATCH /orders/:id/status`) foi conferida em `src/modules/orders/order.routes.ts` antes de entrar no texto.
 
 **Resultado do verify:** 0 falhas. O RFC tem 1692 palavras e linka os 7 ADRs. 81 linhas no Tracker, 93% TRANSCRICAO.
+
+---
+
+## CP-B: Revisão adversarial do RFC
+
+**Prompt usado:** subagente com contexto limpo, focado no papel do RFC: altitude de arquitetura; alternativas **realmente discutidas e descartadas**; questões em aberto **realmente levantadas e não decididas**; cada âncora conferida na linha exata.
+
+**Resultado:** 9 achados, 2 de severidade alta. Os mais instrutivos:
+
+| # | O que a IA tinha escrito | Por que estava errado | Correção |
+|---|---|---|---|
+| 1 | RFC-RISK-04: "aceito nesta fase, com auditoria via logs (`[09:37] Sofia`)" | Sofia só disse "Por enquanto sim. Mais pra frente a gente pode endurecer". A auditoria em log foi pedida para o **replay** da DLQ (`[09:36] Sofia`), não para o CRUD. A IA "emprestou" uma fala vizinha | Auditoria removida; risco marcado *(análise)* |
+| 2 | "Contagem de tentativas" listada como **questão em aberto da reunião** | A reunião decidiu "5 tentativas" sem nenhuma dúvida. A ambiguidade é uma análise do autor | Criada a subseção "Pontos para confirmação *(análise do autor)*", com RFC-CONF-01 e RFC-CONF-02; as questões em aberto passam a ter só o que a reunião deixou aberto (5 itens) |
+| 3 | A questão de ordenação misturava a fala do Diego (`[09:13]`, escala) com a análise de ordenação sob retry | Uma única âncora cobria duas origens diferentes | Separadas: RFC-OPEN-03 (escala, reunião) e RFC-CONF-02 (retry, análise) |
+| 4 | "Resposta de erro conta como falha"; "2xx → entregue" | A reunião só falou do timeout de 10s | Marcado como *Proposta de design* |
+| 5 | Impacto "em quatro pontos" do código | Faltavam `src/app.ts` (`buildControllers`) e o logger (`redactPaths`), que o próprio ADR-006 exige | A lista passa a ter 6 pontos |
+| 6–9 | Citações apontando para a fala errada (secret "gerada pela plataforma" atribuída a `[09:22] Sofia`, quando é de `[09:31] Marcos`); seta do replay invertida no diagrama | — | Citações corrigidas; diagrama refeito com a tabela `webhook_dead_letter` |
+
+**Padrão identificado:** a IA tende a juntar em uma única citação afirmações de falas próximas ("colar" a âncora do bloco de conversa). A partir daqui, as linhas do Tracker que cobrem mais de uma afirmação citam as âncoras secundárias no resumo.
+
+**Verify:** 0 falhas; RFC com 1837 palavras; 82 linhas no Tracker, 93% TRANSCRICAO.

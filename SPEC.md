@@ -63,7 +63,7 @@ for f in docs/adrs/ADR-*.md; do for s in "Status" "Contexto" "Decisão" "Alterna
 
 # 4. Todo caminho de código EXISTENTE citado existe (arquivos novos propostos ficam na allowlist)
 grep -ohE '\b(src|prisma|tests)/[A-Za-z0-9_./-]+\.(ts|prisma|sql|json)\b' docs/*.md docs/adrs/*.md README.md \
-  | sort -u | grep -vE '^(src/worker\.ts|src/modules/webhooks/)' \
+  | sort -u | grep -vE '^(src/worker\.ts|src/modules/webhooks/|tests/webhooks)' \
   | while read -r p; do [ -e "$p" ] || echo "INEXISTENTE: $p"; done
 
 # 5. Todo timestamp do Tracker existe na transcrição com o falante correto (deve imprimir nada)
@@ -152,7 +152,7 @@ de `changeStatus`, após `tx.orderStatusHistory.create(...)`, chamar
 | FDD-INT-03 | `docs/FDD.md` | Integração | Replay de DLQ protegido por `requireRole('ADMIN')` | CODIGO | src/middlewares/auth.middleware.ts |
 ```
 
-**Arquivos novos propostos:** sempre com o marcador `(novo)` e só dentro da allowlist `src/worker.ts`, `src/modules/webhooks/**` e migration Prisma nova (sem caminho fixo). Nunca citar como existente algo que não existe.
+**Arquivos novos propostos:** sempre com o marcador `(novo)` e só dentro da allowlist `src/worker.ts`, `src/modules/webhooks/**`, `tests/webhooks*` e migration Prisma nova (sem caminho fixo). Nunca citar como existente algo que não existe.
 
 **Propostas sem decisão na reunião:** marcar como `> Proposta de design:` e ligá-las à âncora que motivou a proposta (ex.: caminho do endpoint de rotação, a partir de `[09:21] Sofia`). Toda proposta relevante aparece também como questão em aberto no RFC ou como risco.
 
