@@ -210,3 +210,29 @@ mitigação; decisões como trade-offs vistos pelo cliente, linkando os ADRs.
 **Cuidado aplicado:** a meta "95% abaixo de 10s" (PRD-OBJ-01) traduz o limite de 10s de `[09:02] Marcos` em um percentil mensurável. O número 95% é a forma de medir, não um requisito novo, e o FDD usa o mesmo p95 (FDD-OBJ-01). Nenhum baseline de latência foi inventado, porque hoje não há notificação.
 
 **Resultado do verify:** 0 falhas. O PRD tem 15 requisitos funcionais, 11 não funcionais e 8 itens fora de escopo. Tracker com 279 linhas: 88% TRANSCRICAO, 33 CODIGO, cobertura de 100%.
+
+---
+
+## CP-C: Revisão adversarial do FDD
+
+**Prompt usado:** subagente com contexto limpo. Além de conferir âncoras e rótulos de proposta, recebeu uma instrução explícita para verificar **correção técnica contra o código real**: "Would the proposed integration actually work (Express routing/mount order/mergeParams, Prisma schema validity incl. relations and back-relations, MySQL column types/limits, class constructors, Zod usage, Node 20 APIs)? Any claim about existing code that is false?"
+
+**Resultado:** 9 achados técnicos e 6 âncoras fracas. Cerca de 30 âncoras foram conferidas e a maioria estava exata. Os achados mais relevantes, todos corrigidos:
+
+| # | Problema | Correção |
+|---|---|---|
+| 1 | **Linhas presas para sempre em `PROCESSING`:** a recuperação só rodava no boot. Uma exceção no meio do tick deixava as linhas reservadas órfãs, e o replay delas passaria a retornar 409 | Lease de 60s em **todo** tick + try/catch por evento |
+| 2 | **Um `X-Request-Id` longo derrubaria a mudança de status:** o `requestLogger` aceita qualquer header, a coluna tinha `VarChar(64)`, e o erro Prisma `P2000` não é tratado pelo `error.middleware.ts`, o que gera 500 e rollback | Truncamento explícito de todo texto de origem externa (FDD-DADOS-08) |
+| 3 | **Afirmação falsa sobre o código:** "server.ts faz bootstrap com `createPrismaClient()`". Na verdade, ele importa o singleton `prisma`. O erro vinha dos ADRs 002 e 006 | FDD, ADR-002 e ADR-006 corrigidos |
+| 4 | O schema Zod não produzia as mensagens `WEBHOOK_*` prometidas na matriz e aceitava `events: []`, duplicatas e `PENDING` (que nenhuma transição emite) | Schema completo com mensagens customizadas, `.min(1)`, unicidade e exclusão de `PENDING` |
+| 5 | Pseudocódigo `w.events.includes(to)` não compila: `Json` é `Prisma.JsonValue` | Parse via schema |
+| 6 | `*.secret` no Pino não cobre chave no topo do objeto logado | Redact em dois níveis |
+| 7 | Replay de evento **já entregue** era permitido, e o histórico repetiria "tentativa 1" | Replay só de `FAILED`; `attempt` cumulativo no histórico |
+| 8 | Faltavam as respostas 400 para UUID inválido; o exemplo de timestamps contradizia o backoff de 1 min | Corrigidos |
+| 9 | ADR-006 dizia "estende as subclasses", mas o FDD estende `AppError` nos 404 | ADR-006 ajustado, com o motivo (`NotFoundError` fixa `NOT_FOUND`) |
+| 10 | Âncoras fracas: "secret só na criação" apontava `[09:22] Diego` (vazamento), quando a origem é `[09:31] Marcos`; criptografia em repouso atribuída à Sofia | Realinhadas; o item foi marcado *(análise)* |
+| 11 | Números sem rótulo de proposta: 4 KB, `limit`, `202`, tamanhos de coluna | Rotulados |
+
+**Lição de processo:** até aqui, a IA revisava contra a transcrição. Pedir explicitamente uma revisão "isso funcionaria contra o código real?" trouxe à tona bugs de desenho (1, 2, 5, 6) que nenhuma checagem de rastreabilidade pegaria.
+
+**Verify:** 0 falhas. 280 linhas no Tracker, 87% TRANSCRICAO, 34 CODIGO.

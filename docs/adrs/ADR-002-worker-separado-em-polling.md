@@ -14,7 +14,7 @@ Com a outbox definida ([ADR-001](./ADR-001-outbox-no-mysql.md)), falta decidir *
 - O requisito de latência é "abaixo de 10 segundos" (`[09:02] Marcos`).
 - O MySQL não tem um mecanismo nativo de notificação a processos externos, como o `LISTEN/NOTIFY` do Postgres. Triggers só executam SQL (`[09:09] Diego`).
 - A API roda a partir de `src/server.ts`. Se o envio rodasse dentro dela, um restart da API derrubaria o processamento (`[09:11] Diego`).
-- Uma instância de `PrismaClient` pertence a um processo (`[09:30] Bruno`). O projeto cria a sua em `src/config/database.ts` (`createPrismaClient()`).
+- Uma instância de `PrismaClient` pertence a um processo (`[09:30] Bruno`). O projeto exporta um singleton `prisma` em `src/config/database.ts`, instanciado quando o módulo é carregado, e `src/server.ts` o importa.
 
 ## Decisão
 
@@ -22,7 +22,7 @@ Com a outbox definida ([ADR-001](./ADR-001-outbox-no-mysql.md)), falta decidir *
 
 - **Entry point:** `src/worker.ts` (novo), no mesmo molde de `src/server.ts`, executado por um script `npm run worker` (novo) em `package.json` (`[09:11] Larissa`).
 - **Lógica de processamento:** dentro do módulo, em `src/modules/webhooks/webhook.processor.ts` (novo). Na reunião, as opções de nome foram `webhook.worker.ts` ou `webhook.processor.ts` (`[09:28] Bruno`). Adotamos `processor` para não confundir com o entry point.
-- **Conexão:** mesmo banco e mesma `DATABASE_URL`, mas um `PrismaClient` próprio do processo do worker, criado com o `createPrismaClient()` existente (`[09:11] Bruno`, `[09:11] Diego`, `[09:30] Bruno`).
+- **Conexão:** mesmo banco e mesma `DATABASE_URL`, mas um `PrismaClient` próprio do processo do worker. O worker importa o mesmo `prisma` de `src/config/database.ts` que `src/server.ts` usa, e isso cria uma instância nova porque o processo é outro (`[09:11] Bruno`, `[09:11] Diego`, `[09:30] Bruno`).
 - **Ciclo:** a cada 2s, busca os eventos pendentes mais antigos em lote pequeno, processa e atualiza o status (`[09:08] Diego`, `[09:09] Diego`).
 - **Instância única:** roda **um único worker**, que processa em ordem de `created_at` da outbox. Com isso, no caminho feliz, o cliente recebe os eventos de um mesmo pedido na ordem em que aconteceram. Fica registrada como **limitação conhecida** a ausência de garantia de ordenação global: vale só por `order_id` e só enquanto houver um único worker (`[09:12] Diego`, `[09:13] Larissa`). Essa ordenação também não se sustenta quando um evento entra em retry (ver ADR-002-CONS-07).
 

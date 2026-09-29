@@ -30,7 +30,7 @@ A feature precisa de endpoints REST, erros de domínio, validação, logs, autor
 **ADR-006:** O módulo de webhooks segue **exatamente** os padrões existentes, sem introduzir frameworks ou bibliotecas novas para essas responsabilidades.
 
 1. **Estrutura de módulo:** `src/modules/webhooks/` (novo), com `webhook.controller.ts`, `webhook.service.ts`, `webhook.repository.ts`, `webhook.routes.ts` e `webhook.schemas.ts`, espelhando `src/modules/orders/` (`[09:27] Bruno`). O processamento do worker também fica no módulo ([ADR-002](./ADR-002-worker-separado-em-polling.md), `[09:28] Bruno`). Os routers são registrados em `src/routes/index.ts`.
-2. **Erros:** as classes de erro do módulo estendem as subclasses de `AppError` já existentes, com códigos **prefixados por `WEBHOOK_`**, por exemplo `WEBHOOK_NOT_FOUND`, `WEBHOOK_INVALID_URL` e `WEBHOOK_SECRET_REQUIRED` (`[09:28] Bruno`, `[09:29] Larissa`). O `error.middleware.ts` os trata **sem nenhuma alteração** (`[09:29] Bruno`).
+2. **Erros:** as classes de erro do módulo estendem `AppError` ou as subclasses já existentes, com códigos **prefixados por `WEBHOOK_`**, por exemplo `WEBHOOK_NOT_FOUND`, `WEBHOOK_INVALID_URL` e `WEBHOOK_SECRET_REQUIRED` (`[09:28] Bruno`, `[09:29] Larissa`). O `error.middleware.ts` os trata **sem nenhuma alteração** (`[09:29] Bruno`). Os `404` estendem `AppError` diretamente, porque `NotFoundError` fixa o código `NOT_FOUND` e não aceita um código `WEBHOOK_*` (`src/shared/errors/http-errors.ts`). As demais subclasses, como `ConflictError`, aceitam o código e são reaproveitadas.
 3. **Logs:** o mesmo logger Pino, tanto na API quanto no worker (`[09:29] Bruno`).
 4. **Autorização:**
    - O endpoint de replay da DLQ usa o `requireRole('ADMIN')` existente (`[09:36] Larissa`).
@@ -38,7 +38,7 @@ A feature precisa de endpoints REST, erros de domínio, validação, logs, autor
    - O `customer_id` do webhook **não vem do JWT**: é informado pelo chamador no body ou no path (`[09:32] Larissa`). O JWT atual é do usuário operador, e não do cliente (`[09:32] Bruno`). A escolha entre body e path fica para o [FDD](../FDD.md).
 5. **Validação:** schemas Zod no padrão `*.schemas.ts`, incluindo a exigência de URL `https` (`[09:23] Sofia`).
 6. **Integração com pedidos:** `OrderService.changeStatus` chama uma **função pura** `publishWebhookEvent(tx, order, fromStatus, toStatus)` (novo), que recebe o client da transação corrente (`[09:41] Bruno`). Não se injeta um repository de webhooks inteiro no `OrderService` (`[09:41] Diego`).
-7. **Dados:** modelos Prisma novos seguem o padrão de ID `String @id @default(uuid()) @db.Char(36)` de `prisma/schema.prisma` (`[09:51] Larissa`). O worker usa o mesmo `createPrismaClient()` de `src/config/database.ts`, em instância própria (`[09:30] Bruno`).
+7. **Dados:** modelos Prisma novos seguem o padrão de ID `String @id @default(uuid()) @db.Char(36)` de `prisma/schema.prisma` (`[09:51] Larissa`). O worker importa o mesmo `prisma` de `src/config/database.ts`, que no processo dele é uma instância própria (`[09:30] Bruno`).
 
 ## Alternativas Consideradas
 

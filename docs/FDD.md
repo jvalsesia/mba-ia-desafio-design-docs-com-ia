@@ -38,7 +38,7 @@ Na reunião, a transação foi descrita como "pesada" e como "decrementa stock_q
 | **FDD-OBJ-02** | Nenhuma mudança de status sem evento | 100% das mudanças de status com assinante geram linha na outbox **na mesma transação**; falha na inserção desfaz a mudança | `[09:40] Bruno` |
 | **FDD-OBJ-03** | Tolerância a indisponibilidade do cliente | Retentativas cobrem **14h36min** após a primeira falha antes da DLQ | `[09:17] Diego` |
 | **FDD-OBJ-04** | Zero infraestrutura e dependências novas | Nenhum pacote novo em `package.json`; só MySQL, Prisma, Pino e APIs nativas do Node 20 | `[09:07] Diego`, `[09:29] Bruno` |
-| **FDD-OBJ-05** | Secrets nunca expostos | Secret só aparece nas respostas de criação e de rotação; nunca em listagens nem em logs | `[09:22] Diego` |
+| **FDD-OBJ-05** | Secrets nunca expostos | Secret só aparece nas respostas de criação (`[09:31] Marcos`) e de rotação (`[09:21] Sofia`); nunca em listagens nem em logs, porque um vazamento em log já ocorreu com um cliente (`[09:22] Diego`) | `[09:31] Marcos` |
 
 ## 3. Escopo e exclusões
 
@@ -121,7 +121,7 @@ model WebhookDelivery {
   id           String   @id @default(uuid()) @db.Char(36)
   webhookId    String   @db.Char(36)
   outboxId     String   @db.Char(36)
-  attempt      Int                          // 1 = envio inicial
+  attempt      Int                          // cumulativo por evento; 1 = envio inicial
   success      Boolean
   statusCode   Int?
   durationMs   Int
@@ -167,6 +167,7 @@ O model `Customer` ganha a relação inversa `webhooks Webhook[]`.
 | **FDD-DADOS-04** | *Proposta de design:* uma linha da outbox por par (mudança de status, webhook assinante). Assim, retry e DLQ são independentes por endpoint. O `id` da linha é o `event_id` único enviado em `X-Event-Id` | `[09:25] Diego` |
 | **FDD-DADOS-05** | *Proposta de design:* `payload` é `MEDIUMTEXT`, com a string JSON exata que será enviada. Os bytes são idênticos em todas as tentativas ([ADR-007](./adrs/ADR-007-snapshot-do-payload-na-insercao.md)), e um evento acima de 64KB ainda pode ser gravado. Com `TEXT` (máx. 65.535 bytes), a inserção falharia e desfaria a mudança de status | `[09:52] Larissa`, `[09:24] Larissa` |
 | **FDD-DADOS-06** | DLQ em tabela própria, com payload, motivo e timestamp | `[09:18] Diego` |
+| **FDD-DADOS-08** | *Proposta de design:* os tamanhos de coluna (`VarChar(2048)` para URL, `(128)` para secret, `(500)` para motivos, `(64)` para `requestId`) e o truncamento de `responseBody` em 4 KB são escolhas deste FDD. **Todo texto de origem externa é truncado antes de gravar:** `requestId` em 64 caracteres, porque o `requestLogger` aceita qualquer `x-request-id`; `lastError`/`failureReason` em 500; `responseBody` em 4 KB. Sem isso, o MySQL em modo estrito rejeita a escrita: um erro Prisma `P2000`, que o `error.middleware.ts` não trata, derrubaria a mudança de status com 500 | `src/middlewares/request-logger.middleware.ts` |
 | **FDD-DADOS-07** | *Proposta de design:* `onDelete: Cascade` de `Webhook → Customer`, para não mudar o comportamento atual de `DELETE /customers/:id`. Exclusão do webhook remove em cascata outbox, entregas e DLQ (ver §6.4) | `prisma/schema.prisma` |
 
 ## 5. Fluxos detalhados
@@ -182,7 +183,7 @@ PATCH /orders/:id/status ─▶ OrderController.changeStatus ─▶ OrderService
     4. tx.orderStatusHistory.create(...)
     5. publishWebhookEvent(tx, order, from, to, { requestId })          ◀── novo
          a. subs = tx.webhook.findMany({ customerId: order.customerId, active: true })
-                     .filter(w => w.events.includes(to))
+                     .filter(w => webhookEventsSchema.parse(w.events).includes(to))   // events é Prisma.JsonValue
          b. se subs vazio → retorna [] (nenhuma linha)
          c. timestamp = new Date().toISOString()
          d. para cada w: eventId = uuidv4(); payload = JSON.stringify({...})
@@ -205,14 +206,15 @@ PATCH /orders/:id/status ─▶ OrderController.changeStatus ─▶ OrderService
 
 ```
 src/worker.ts (novo)
-  boot: prisma = createPrismaClient(); recoverStuck(); agenda tick; SIGINT/SIGTERM → shutdown gracioso
+  boot: import { prisma } from './config/database.js' (instância própria deste processo); agenda tick; SIGINT/SIGTERM → shutdown gracioso
   tick (a cada 2s, sem sobreposição: o próximo só é agendado ao fim do anterior):
+    0. lease: UPDATE webhook_outbox SET status='PENDING' WHERE status='PROCESSING' AND updatedAt < now() - 60s
     1. claim: tx { ids = SELECT id FROM webhook_outbox
                           WHERE status='PENDING' AND nextAttemptAt <= now()
                           ORDER BY createdAt ASC LIMIT 10;
                    UPDATE ... SET status='PROCESSING' WHERE id IN ids }
     2. agrupa por orderId → grupos em paralelo; dentro do grupo, sequencial por createdAt
-    3. por evento:
+    3. por evento (try/catch individual: exceção inesperada → volta a PENDING com o backoff da tentativa, sem derrubar o lote):
        a. carrega webhook (url, secret, previousSecret*)
        b. pré-checagens não retentáveis → FLUXO-04 direto:
             webhook inativo            → WEBHOOK_INACTIVE
@@ -227,11 +229,11 @@ src/worker.ts (novo)
 
 | ID | Regra | Origem |
 | --- | --- | --- |
-| **FDD-WORKER-01** | Processo separado, mesmo banco, `PrismaClient` próprio via `createPrismaClient()` (`src/config/database.ts`) | `[09:11] Diego`, `[09:30] Bruno` |
+| **FDD-WORKER-01** | Processo separado, mesmo banco. O `src/worker.ts` (novo) importa o singleton `prisma` de `src/config/database.ts`, como `src/server.ts`. Por ser outro processo, a instância é própria | `[09:11] Diego`, `[09:30] Bruno` |
 | **FDD-WORKER-02** | Polling de 2s, pendentes mais antigos primeiro, em lote pequeno. *Proposta de design:* lote de 10 | `[09:09] Diego`, `[09:08] Diego` |
 | **FDD-WORKER-03** | Instância única; ordem preservada por `order_id` no caminho sem falhas | `[09:12] Diego` |
 | **FDD-WORKER-04** | *Proposta de design:* paralelismo **entre** pedidos distintos do lote, para que um cliente lento não atrase os demais além de um timeout (RFC-RISK-01), mantendo a ordem **dentro** de cada pedido | `[09:42] Diego` |
-| **FDD-WORKER-05** | *Proposta de design:* no boot, linhas presas em `PROCESSING` (worker morto no meio do envio) voltam para `PENDING`. Isso pode gerar reentrega, que é coberta pelo at-least-once | `[09:24] Diego` |
+| **FDD-WORKER-05** | *Proposta de design:* recuperação por *lease* em todo tick (passo 0). Linhas em `PROCESSING` há mais de 60s (timeout de 10s mais margem) voltam para `PENDING`, o que cobre worker morto no meio do envio e tick interrompido. Somado ao try/catch por evento (passo 3), nenhuma linha fica presa. A reentrega eventual é coberta pelo at-least-once | `[09:24] Diego` |
 | **FDD-WORKER-06** | *Proposta de design:* só 2xx conta como sucesso. Redirecionamentos não são seguidos (`redirect: 'manual'`) e contam como falha | `[09:42] Diego` |
 | **FDD-WORKER-07** | *Proposta de design:* o shutdown gracioso segue o molde de `src/server.ts` (SIGINT/SIGTERM → parar agendamento → aguardar envios em curso → `prisma.$disconnect()`) | `src/server.ts` |
 
@@ -264,13 +266,13 @@ A agenda vem de `[09:17] Larissa`. A contagem 1 + 5 é a interpretação do [ADR
 **Replay** (`POST /admin/webhooks/dead-letter/:id/replay`, §6.7):
 1. `authenticate` + `requireRole('ADMIN')` (`[09:36] Sofia`, `[09:36] Larissa`).
 2. Dead letter inexistente → `404 WEBHOOK_DEAD_LETTER_NOT_FOUND`.
-3. Já reprocessado, com a outbox em `PENDING`/`PROCESSING` → `409 WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED`.
+3. Linha da outbox em qualquer status diferente de `FAILED` (já reenfileirada, em processamento ou já entregue após replay) → `409 WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED`. O replay só vale para evento em falha definitiva.
 4. Webhook inativo → `409 WEBHOOK_INACTIVE`.
 5. Em uma transação, a **mesma** linha da outbox volta a `PENDING`, com `attempts = 0`, `nextAttemptAt = now` e `lastError = null`. Como o id é o mesmo, o `X-Event-Id` também é, e a dedup do cliente continua funcionando ([ADR-005](./adrs/ADR-005-at-least-once-com-x-event-id.md)). O dead letter recebe `replayedAt = now` e `replayedById = req.user.id`.
 6. Log `webhook_replayed` com `adminUserId`, `deadLetterId`, `eventId` e `requestId`, para auditoria (`[09:36] Sofia`).
 7. Resposta `202`. O envio acontece no próximo tick do worker.
 
-*Proposta de design:* zerar `attempts` concede uma nova agenda completa de retentativas. Se o evento falhar de novo, o `upsert` reaproveita o mesmo registro de DLQ e limpa `replayedAt`.
+*Proposta de design:* zerar `attempts` concede uma nova agenda completa de retentativas. O campo `attempts` controla só a agenda. O `attempt` gravado em `webhook_deliveries` é **cumulativo** por evento, calculado como o número de entregas existentes para o `outboxId` + 1, então o histórico não repete "tentativa 1" após um replay. Se o evento falhar de novo, o `upsert` reaproveita o mesmo registro de DLQ e limpa `replayedAt`.
 
 ### 5.5 FDD-FLUXO-05: Rotação de secret
 
@@ -333,7 +335,7 @@ Content-Type: application/json
 | Status | Código | Quando |
 | --- | --- | --- |
 | 201 | — | Criado |
-| 400 | `VALIDATION_ERROR` (detalhe `WEBHOOK_INVALID_URL` / `WEBHOOK_INVALID_EVENTS`) | URL não-`https`/inválida; `events` vazio ou com status fora de `OrderStatus` |
+| 400 | `VALIDATION_ERROR` (detalhe `WEBHOOK_INVALID_URL` / `WEBHOOK_INVALID_EVENTS`) | URL não-`https`/inválida; `events` inválido (FDD-ERRO-04); `customerId` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_CUSTOMER_NOT_FOUND` | `customerId` inexistente |
 
@@ -355,12 +357,13 @@ Authorization: Bearer eyJhbGciOi...
 | Status | Código | Quando |
 | --- | --- | --- |
 | 200 | — | Lista, possivelmente vazia |
+| 400 | `VALIDATION_ERROR` | `customerId` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_CUSTOMER_NOT_FOUND` | `customerId` inexistente |
 
 #### PATCH /webhooks/:id
 
-**FDD-CONTRATO-03:** Edita `url`, `events` e/ou `active` (`[09:33] Bruno`). O schema Zod é `strict()` e exige ao menos um campo, e o campo `secret` não é aceito (a rotação usa 6.5). Mudanças valem para **novos** eventos. Eventos já na outbox são enviados à URL vigente no momento do envio. Desativar (`active: false`) faz os eventos pendentes daquele webhook irem para a DLQ com `WEBHOOK_INACTIVE` no próximo tick (*proposta de design*).
+**FDD-CONTRATO-03:** Edita `url`, `events` e/ou `active` (`[09:33] Bruno`). O schema Zod é `strict()` e exige ao menos um campo, e o campo `secret` não é aceito (a rotação usa 6.5). Mudanças de `events` valem para **novos** eventos. *Proposta de design:* eventos já na outbox são enviados à URL vigente no momento do envio. Desativar (`active: false`) faz os eventos pendentes daquele webhook irem para a DLQ com `WEBHOOK_INACTIVE` no próximo tick (*proposta de design*).
 
 ```http
 PATCH /api/v1/webhooks/4b1f8a2e-6a0e-4c43-9a51-2f0c1d7e9b10
@@ -379,7 +382,7 @@ Content-Type: application/json
 | Status | Código | Quando |
 | --- | --- | --- |
 | 200 | — | Atualizado |
-| 400 | `VALIDATION_ERROR` (detalhe `WEBHOOK_INVALID_URL` / `WEBHOOK_INVALID_EVENTS`) | Corpo vazio, campo desconhecido, URL não-`https` |
+| 400 | `VALIDATION_ERROR` (detalhe `WEBHOOK_INVALID_URL` / `WEBHOOK_INVALID_EVENTS`) | Corpo vazio, campo desconhecido, URL não-`https`, `id` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_NOT_FOUND` | Webhook inexistente |
 
@@ -403,6 +406,7 @@ Authorization: Bearer eyJhbGciOi...
 | Status | Código | Quando |
 | --- | --- | --- |
 | 204 | — | Removido |
+| 400 | `VALIDATION_ERROR` | `id` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_NOT_FOUND` | Webhook inexistente |
 
@@ -428,12 +432,13 @@ Authorization: Bearer eyJhbGciOi...
 | Status | Código | Quando |
 | --- | --- | --- |
 | 200 | — | Nova secret gerada |
+| 400 | `VALIDATION_ERROR` | `id` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_NOT_FOUND` | Webhook inexistente |
 
 #### GET /webhooks/:id/deliveries
 
-**FDD-CONTRATO-06:** Histórico das últimas entregas, com sucesso ou falha, payload, resposta e tempo de resposta. Cada tentativa é um item. A ordenação é da mais recente para a mais antiga, com `limit` opcional de 1 a 100 (padrão 100) (`[09:34] Marcos`).
+**FDD-CONTRATO-06:** Histórico das últimas 100 entregas, com sucesso ou falha, payload, resposta e tempo de resposta (`[09:34] Marcos`). *Proposta de design:* cada tentativa é um item, a ordenação é da mais recente para a mais antiga, e o parâmetro `limit` é opcional, de 1 a 100 (padrão 100).
 
 ```http
 GET /api/v1/webhooks/4b1f8a2e-6a0e-4c43-9a51-2f0c1d7e9b10/deliveries?limit=2
@@ -455,7 +460,7 @@ Authorization: Bearer eyJhbGciOi...
       "errorCode": null,
       "payload": "{\"event_id\":\"7d9e2c1a-3b4f-4e5d-9a8b-1c2d3e4f5a6b\",\"event_type\":\"order.status_changed\",...}",
       "responseBody": "{\"received\":true}",
-      "createdAt": "2026-11-03T14:04:25.310Z"
+      "createdAt": "2026-11-03T14:04:36.120Z"
     },
     {
       "id": "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
@@ -476,13 +481,13 @@ Authorization: Bearer eyJhbGciOi...
 | Status | Código | Quando |
 | --- | --- | --- |
 | 200 | — | Lista, possivelmente vazia |
-| 400 | `VALIDATION_ERROR` | `limit` fora de 1–100 |
+| 400 | `VALIDATION_ERROR` | `limit` fora de 1–100 ou `id` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 404 | `WEBHOOK_NOT_FOUND` | Webhook inexistente |
 
 #### POST /admin/webhooks/dead-letter/:id/replay
 
-**FDD-CONTRATO-07:** Recoloca um evento da DLQ na outbox como pendente (`[09:18] Diego`, `[09:35] Diego`). Exige `ADMIN` (`[09:36] Sofia`). Sem corpo.
+**FDD-CONTRATO-07:** Recoloca um evento da DLQ na outbox como pendente (`[09:18] Diego`, `[09:35] Diego`). Exige `ADMIN` (`[09:36] Sofia`). Sem corpo. *Proposta de design:* a resposta é `202 Accepted`, porque o envio é assíncrono.
 
 ```http
 POST /api/v1/admin/webhooks/dead-letter/5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9/replay
@@ -504,10 +509,11 @@ Authorization: Bearer eyJhbGciOi... (role ADMIN)
 | Status | Código | Quando |
 | --- | --- | --- |
 | 202 | — | Reenfileirado; entrega no próximo tick |
+| 400 | `VALIDATION_ERROR` | `id` não é UUID |
 | 401 | `UNAUTHORIZED` | Sem JWT válido |
 | 403 | `FORBIDDEN` | Role diferente de `ADMIN` (`requireRole`) |
 | 404 | `WEBHOOK_DEAD_LETTER_NOT_FOUND` | Dead letter inexistente |
-| 409 | `WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED` | Já reenfileirado e ainda pendente/processando |
+| 409 | `WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED` | Evento não está mais em falha definitiva (já reenfileirado ou entregue) |
 | 409 | `WEBHOOK_INACTIVE` | Webhook desativado |
 
 #### Entrega ao cliente: `POST {url do webhook}`
@@ -581,9 +587,9 @@ export class WebhookDeadLetterAlreadyReplayedError extends ConflictError {
 | **FDD-ERRO-01** | `WEBHOOK_NOT_FOUND` | 404 | `AppError` | Id de webhook inexistente | 6.3, 6.4, 6.5, 6.6 |
 | **FDD-ERRO-02** | `WEBHOOK_CUSTOMER_NOT_FOUND` | 404 | `AppError` | `customerId` inexistente | 6.1, 6.2 |
 | **FDD-ERRO-03** | `WEBHOOK_INVALID_URL` | 400 | Zod → `ValidationError` | URL malformada ou não-`https`. A validação fica no schema Zod (`[09:23] Sofia`), então a resposta sai como `VALIDATION_ERROR` com `details: [{ "path": "url", "message": "WEBHOOK_INVALID_URL: url must use https" }]`, pelo `validate()` de `src/middlewares/validate.middleware.ts` | 6.1, 6.3 |
-| **FDD-ERRO-04** | `WEBHOOK_INVALID_EVENTS` | 400 | Zod → `ValidationError` | `events` vazio, com duplicatas ou com valor fora de `OrderStatus`; mesmo mecanismo do anterior | 6.1, 6.3 |
+| **FDD-ERRO-04** | `WEBHOOK_INVALID_EVENTS` | 400 | Zod → `ValidationError` | `events` vazio, com duplicatas, com `PENDING` ou com valor fora de `OrderStatus`, pelas mensagens customizadas do schema (FDD-INT-08) | 6.1, 6.3 |
 | **FDD-ERRO-05** | `WEBHOOK_DEAD_LETTER_NOT_FOUND` | 404 | `AppError` | Id de dead letter inexistente | 6.7 |
-| **FDD-ERRO-06** | `WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED` | 409 | `ConflictError` | Replay repetido enquanto o evento ainda está pendente/processando | 6.7 |
+| **FDD-ERRO-06** | `WEBHOOK_DEAD_LETTER_ALREADY_REPLAYED` | 409 | `ConflictError` | Replay de evento cuja linha na outbox não está em `FAILED` (já reenfileirado, em processamento ou entregue) | 6.7 |
 | **FDD-ERRO-07** | `WEBHOOK_INACTIVE` | 409 | `ConflictError` | Replay para webhook desativado | 6.7 |
 | — | `UNAUTHORIZED` / `FORBIDDEN` | 401 / 403 | Existentes | `authenticate` / `requireRole('ADMIN')` sem alteração | todos / 6.7 |
 
@@ -609,9 +615,9 @@ Estes motivos não são respostas HTTP da API. Eles ficam gravados em `webhook_d
 | **FDD-RES-02** | Retry com backoff | Agenda fixa 1m/5m/30m/2h/12h via `nextAttemptAt`, sem jitter | `[09:17] Larissa` |
 | **FDD-RES-03** | Fallback: DLQ | Após a 6ª falha ou em uma falha não retentável, o evento vai para `webhook_dead_letter`, com replay manual por ADMIN | `[09:18] Diego` |
 | **FDD-RES-04** | Limite de tamanho | 64KB verificados no worker, antes do envio. *Proposta de design:* validar na inserção lançaria erro dentro da transação de `changeStatus` e bloquearia a mudança de status ([ADR-007](./adrs/ADR-007-snapshot-do-payload-na-insercao.md)) | `[09:24] Larissa` |
-| **FDD-RES-05** | Recuperação de crash | `PROCESSING → PENDING` no boot do worker. A reentrega eventual é coberta pelo at-least-once | `[09:24] Diego` |
+| **FDD-RES-05** | Recuperação de crash | *Lease* de 60s em todo tick (`PROCESSING → PENDING`, FDD-WORKER-05). A reentrega eventual é coberta pelo at-least-once | `[09:24] Diego` |
 | **FDD-RES-06** | Isolamento entre clientes | Envio paralelo entre pedidos distintos do lote, sequencial dentro do pedido (FDD-WORKER-04) | `[09:42] Diego` |
-| **FDD-RES-07** | Indisponibilidade do banco no worker | *Proposta de design:* uma exceção no tick é logada (`webhook_worker_tick_failed`) e o próximo tick é agendado normalmente. Nenhum evento se perde, porque o estado vive na outbox | `[09:06] Diego` |
+| **FDD-RES-07** | Indisponibilidade do banco no worker | *Proposta de design:* uma exceção no tick é logada (`webhook_worker_tick_failed`) e o próximo tick é agendado normalmente. As linhas que já estavam em `PROCESSING` voltam pelo *lease* (FDD-RES-05). Nenhum evento se perde, porque o estado vive na outbox (`[09:06] Diego`) | `[09:06] Diego` |
 | **FDD-RES-08** | Worker parado | Os eventos se acumulam em `PENDING` sem perda e são entregues quando o worker volta. O alarme vem da métrica de idade do pendente mais antigo (§9.1) | `[09:11] Diego` |
 
 ## 9. Observabilidade
@@ -644,7 +650,7 @@ Se o time adotar um backend de métricas depois, os nomes abaixo continuam valen
 | **FDD-OBS-11** | `webhook_secret_rotated`, `webhook_created`, `webhook_updated`, `webhook_deleted` | info | `webhookId`, `customerId`, `userId`, `requestId`. **Nunca** o valor da secret | API |
 | **FDD-OBS-12** | `webhook_worker_tick` / `webhook_worker_tick_failed` | debug / error | `claimed`, `pending`, `oldestPendingAgeS`, `durationMs` / `err` | Worker |
 
-**FDD-OBS-13 (proteção de secrets):** acrescentar `'*.secret'`, `'*.previousSecret'` e `'*.newSecret'` aos `redactPaths` de `src/shared/logger/index.ts`, que hoje cobrem só headers de autorização, `password`, `passwordHash`, `token` e `accessToken` ([ADR-006](./adrs/ADR-006-reuso-dos-padroes-do-projeto.md)). O worker usa `logger.child({ component: 'webhook-worker' })`.
+**FDD-OBS-13 (proteção de secrets):** acrescentar `'secret'`, `'previousSecret'`, `'newSecret'` (chaves no topo do objeto logado) e `'*.secret'`, `'*.previousSecret'`, `'*.newSecret'` (um nível abaixo) aos `redactPaths` de `src/shared/logger/index.ts`, que hoje cobrem só headers de autorização, `password`, `passwordHash`, `token` e `accessToken` ([ADR-006](./adrs/ADR-006-reuso-dos-padroes-do-projeto.md)). O worker usa `logger.child({ component: 'webhook-worker' })`.
 
 ### 9.3 Tracing (correlação)
 
@@ -661,16 +667,16 @@ A instrumentação com OpenTelemetry fica fora de escopo, porque adicionaria dep
 | ID | Arquivo (real) | O que existe hoje | Como o módulo de webhooks se integra |
 | --- | --- | --- | --- |
 | **FDD-INT-01** | `src/modules/orders/order.service.ts` | `changeStatus(id, input, userId)` com `this.prisma.$transaction(async (tx) => …)` | Após `tx.orderStatusHistory.create(...)` e antes do refetch, chamar `await publishWebhookEvent(tx, order, from, to, { requestId })`, importada de `src/modules/webhooks/webhook.publisher.ts` (novo). A assinatura ganha um 4º parâmetro opcional `meta?: { requestId?: string }`. Um erro propaga e faz rollback (`[09:40] Bruno`, `[09:41] Bruno`). O construtor `OrderService(orderRepository, prisma)` não muda |
-| **FDD-INT-02** | `src/modules/orders/order.controller.ts` | `changeStatus` chama `this.orders.changeStatus(req.params.id!, req.body, req.user.id)` | Passar `{ requestId: req.id }` como 4º argumento (§9.3) |
-| **FDD-INT-03** | `src/modules/orders/order.status.ts` | Máquina de estados (`canTransition`) e enum `OrderStatus` | Sem alteração. Só transições válidas chegam à publicação. O schema de `events` usa `z.array(z.nativeEnum(OrderStatus))`, como `updateOrderStatusSchema` em `src/modules/orders/order.schemas.ts` |
+| **FDD-INT-02** | `src/modules/orders/order.controller.ts` | `changeStatus` chama `this.orders.changeStatus(req.params.id!, req.body, req.user.id)` | Passar `{ requestId: req.id }` como 4º argumento (§9.3). O publisher trunca o valor em 64 caracteres (FDD-DADOS-08) |
+| **FDD-INT-03** | `src/modules/orders/order.status.ts` | Máquina de estados (`canTransition`) e enum `OrderStatus` | Sem alteração. Só transições válidas chegam à publicação. O schema de `events` usa `z.nativeEnum(OrderStatus)` (como `updateOrderStatusSchema` em `src/modules/orders/order.schemas.ts`), sem `PENDING`, que nenhuma transição produz (FDD-INT-08) |
 | **FDD-INT-04** | `prisma/schema.prisma` | Models com `@db.Char(36)` + `uuid()`, enums, `@@map` | Novos `Webhook`, `WebhookOutbox`, `WebhookDelivery`, `WebhookDeadLetter`, enum `WebhookOutboxStatus`, relação `Customer.webhooks` (§4). Migration nova via `npm run db:migrate` |
 | **FDD-INT-05** | `src/shared/errors/app-error.ts`, `src/shared/errors/http-errors.ts`, `src/shared/errors/index.ts` | `AppError(message, statusCode, errorCode, details)`, `ConflictError(message, code, details)` etc. | Estendidos em `src/modules/webhooks/webhook.errors.ts` (novo), com códigos `WEBHOOK_*` (§7). Nenhuma mudança nos arquivos compartilhados |
 | **FDD-INT-06** | `src/middlewares/error.middleware.ts` | Trata `AppError` → `{ error: { code, message, details } }`, `ZodError` e Prisma `P2002`/`P2025` | **Sem alteração.** Erros `WEBHOOK_*` saem no formato padrão (`[09:29] Bruno`) |
 | **FDD-INT-07** | `src/middlewares/auth.middleware.ts` | `authenticate` e `requireRole(...roles)` | `router.use(authenticate)` em cada router do módulo, todos montados com prefixo (FDD-INT-09); `requireRole('ADMIN')` no replay (`[09:36] Larissa`) |
-| **FDD-INT-08** | `src/middlewares/validate.middleware.ts` | `validate({ body, query, params })` → `ValidationError` | Todos os endpoints validam `params`/`body`/`query` com schemas de `src/modules/webhooks/webhook.schemas.ts` (novo), incluindo `url` com `z.string().url().refine(u => u.startsWith('https://'), 'WEBHOOK_INVALID_URL: url must use https')` (`[09:23] Sofia`) |
+| **FDD-INT-08** | `src/middlewares/validate.middleware.ts` | `validate({ body, query, params })` → `ValidationError` | Todos os endpoints validam `params`/`body`/`query` com schemas de `src/modules/webhooks/webhook.schemas.ts` (novo), incluindo `url: z.string().url({ message: 'WEBHOOK_INVALID_URL: invalid url' }).refine(u => u.startsWith('https://'), 'WEBHOOK_INVALID_URL: url must use https')` (`[09:23] Sofia`) e `events: z.array(z.nativeEnum(OrderStatus).refine(s => s !== OrderStatus.PENDING, 'WEBHOOK_INVALID_EVENTS: PENDING is never emitted')).min(1, 'WEBHOOK_INVALID_EVENTS: at least one status').refine(a => new Set(a).size === a.length, 'WEBHOOK_INVALID_EVENTS: duplicated status')`. `PENDING` fica de fora porque nenhuma transição leva a ele (`src/modules/orders/order.status.ts`) |
 | **FDD-INT-09** | `src/routes/index.ts` | `buildApiRouter(controllers)` monta `/auth`, `/users`, `/customers`, `/products` e `/orders`, cada router com `router.use(authenticate)` interno; tipo `Controllers` | Acrescentar `webhooks` em `Controllers` e montar três routers **com prefixo**, nunca na raiz. Um router na raiz com `router.use(authenticate)` exigiria JWT até em `/auth/login`. Os três são: `router.use('/customers/:customerId/webhooks', buildCustomerWebhookRouter(...))` com `Router({ mergeParams: true })`, registrado **antes** de `'/customers'`; `router.use('/webhooks', buildWebhookRouter(...))`; e `router.use('/admin/webhooks', buildWebhookAdminRouter(...))` |
 | **FDD-INT-10** | `src/app.ts` | `buildControllers(prisma)` instancia repository → service → controller | Instanciar `WebhookRepository`, `WebhookService` e `WebhookController` (novos) no mesmo padrão |
-| **FDD-INT-11** | `src/server.ts`, `src/config/database.ts` | Bootstrap com `createPrismaClient()`, SIGINT/SIGTERM e `prisma.$disconnect()` | `src/worker.ts` (novo) segue o mesmo molde, com instância própria de `PrismaClient` (`[09:30] Bruno`). A lógica fica em `src/modules/webhooks/webhook.processor.ts` (novo) |
+| **FDD-INT-11** | `src/server.ts`, `src/config/database.ts` | Bootstrap que importa o singleton `prisma` (criado em `database.ts` ao carregar o módulo), com SIGINT/SIGTERM e `prisma.$disconnect()` | `src/worker.ts` (novo) segue o mesmo molde, com instância própria de `PrismaClient` (`[09:30] Bruno`). A lógica fica em `src/modules/webhooks/webhook.processor.ts` (novo) |
 | **FDD-INT-12** | `src/shared/logger/index.ts` | Pino com `redactPaths` | Novos caminhos de redact (FDD-OBS-13); `logger.child` no worker |
 | **FDD-INT-13** | `package.json` | Scripts `dev`, `start`, `db:*` e `test` | `"worker": "node --env-file=.env dist/worker.js"` e `"worker:dev": "tsx watch --env-file=.env src/worker.ts"`, espelhando `start`/`dev` (`[09:11] Larissa`). Nenhuma dependência nova |
 | **FDD-INT-14** | `tests/setup.ts` | `deleteMany` por tabela no `beforeEach` | Acrescentar `webhookDelivery`, `webhookDeadLetter`, `webhookOutbox` e `webhook` antes de `customer`. Os testes novos ficam em `tests/webhooks.test.ts` (novo), com Vitest + Supertest, como `tests/orders.test.ts` |
@@ -714,7 +720,7 @@ Estrutura final do módulo:
 | --- | --- | --- | --- | --- |
 | **FDD-RISK-01** | Um cliente lento (até 10s por chamada) atrasa outros clientes com worker único | Média | Alto (meta de 10s) | Paralelismo entre pedidos (FDD-RES-06); alerta em FDD-OBS-02/04; revisão de escala (RFC-OPEN-03) (`[09:42] Diego`) |
 | **FDD-RISK-02** | Inversão de ordem de eventos do mesmo pedido quando um está em retry | Baixa | Médio | Payload traz `from_status`/`to_status`; ponto para confirmação RFC-CONF-02 (`[09:12] Diego`) |
-| **FDD-RISK-03** | Secret em claro no banco, necessária para assinar | Média | Alto | Secret por endpoint e rotação (`[09:21] Sofia`); `redact` (FDD-OBS-13); fora de respostas de leitura. Criptografia em repouso levada à revisão da Sofia (`[09:46] Sofia`) |
+| **FDD-RISK-03** | *(análise)* Secret em claro no banco, necessária para assinar ([ADR-004](./adrs/ADR-004-hmac-sha256-secret-por-endpoint.md)) | Média | Alto | Secret por endpoint e rotação (`[09:21] Sofia`); `redact` (FDD-OBS-13); fora de respostas de leitura. *(análise)* Criptografia em repouso não foi discutida e é sugerida como item da revisão de segurança já prevista (`[09:46] Sofia`) |
 | **FDD-RISK-04** | Crescimento da outbox e de `webhook_deliveries` sem arquivamento nesta fase | Alta | Médio | Índices em `status, createdAt` e `webhookId, createdAt`; arquivamento em fase futura (`[09:08] Diego`) |
 | **FDD-RISK-05** | Usuário autenticado configura webhook de outro customer (sem vínculo usuário–cliente) | Média | Médio | Aceito nesta fase; logs com `userId` (FDD-OBS-11); endurecimento posterior (`[09:37] Sofia`) |
 | **FDD-RISK-06** | *(análise)* URL `https` arbitrária pode apontar para endereços internos da infraestrutura (SSRF) | Baixa | Alto | Não discutido na reunião: item levado à revisão de segurança da Sofia antes do deploy (`[09:46] Sofia`) |
